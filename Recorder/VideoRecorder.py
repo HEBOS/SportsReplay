@@ -63,8 +63,15 @@ class VideoRecorder(object):
                             camera_number=self.camera_number,
                             currentTime=int(current_time),
                             frameNumber=str(frame_number).zfill(4)))
+
             if not self.frameQueue.full():
-                self.frameQueue.put_nowait(CapturedFrame(image, file_path))
+                self.frameQueue.put_nowait(CapturedFrame(image,
+                                                         file_path,
+                                                         self.camera_number,
+                                                         self.fps,
+                                                         int(current_time),
+                                                         frame_number,
+                                                         self.target_path))
         except Exception as ex:
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera_number, self.playground))
