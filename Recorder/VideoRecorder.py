@@ -180,6 +180,7 @@ class VideoRecorder(object):
 
                     with self.read_lock:
                         if not os.path.isfile(expected_file):
+                            # print("Compensating missing file {} by using {}".format(expected_file, previous_file))
                             shutil.copyfile(previous_file, expected_file)
                         else:
                             break
