@@ -75,10 +75,10 @@ class VideoRecorder(object):
 
                 file_path = os.path.normpath(
                     r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.png"
-                    .format(target_path=self.target_path,
-                            camera_number=self.camera_number,
-                            currentTime=int(current_time),
-                            frameNumber=str(frame_number).zfill(4)))
+                        .format(target_path=self.target_path,
+                                camera_number=self.camera_number,
+                                currentTime=int(current_time),
+                                frameNumber=str(frame_number).zfill(4)))
 
             if not self.frameQueue.full():
                 self.frameQueue.put_nowait(CapturedFrame(image, file_path))
@@ -97,13 +97,12 @@ class VideoRecorder(object):
 
                 while time.time() < self.scheduled_end_of_recording and self.casting:
                     current_time = time.time()
-                    current_snapshot = int(current_time) + ((int(round((((current_time - int(current_time)) / 100) *
-                                                                        self.fps) * 100, 1)) + 1) / 10000)
+                    current_snapshot = int(current_time) + ((int(round((current_time - int(current_time)) *
+                                                                       self.fps, 1)) + 1) / 10000)
 
                     if current_snapshot != previous_snapshot:
                         previous_snapshot = int(current_time) + \
-                                            ((int(round((((current_time - int(current_time)) / 100) * self.fps) *
-                                                        100, 1)) + 1) / 10000)
+                                            ((int(round((current_time - int(current_time)) * self.fps, 1)) + 1) / 10000)
                         read_thread = threading.Thread(target=self.read_frame, args=(time.time(),))
                         read_thread.start()
             except Exception as ex:
@@ -167,16 +166,16 @@ class VideoRecorder(object):
                 for i in range(1, self.fps + 1):
                     previous_file = os.path.normpath(
                         r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.png"
-                        .format(target_path=self.target_path,
-                                camera_number=self.camera_number,
-                                currentTime=previous_frame[0],
-                                frameNumber=str(previous_frame[1]).zfill(4)))
+                            .format(target_path=self.target_path,
+                                    camera_number=self.camera_number,
+                                    currentTime=previous_frame[0],
+                                    frameNumber=str(previous_frame[1]).zfill(4)))
                     expected_file = os.path.normpath(
                         r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.png"
-                        .format(target_path=self.target_path,
-                                camera_number=self.camera_number,
-                                currentTime=self.repairing_frame[0],
-                                frameNumber=str(self.repairing_frame[1]).zfill(4)))
+                            .format(target_path=self.target_path,
+                                    camera_number=self.camera_number,
+                                    currentTime=self.repairing_frame[0],
+                                    frameNumber=str(self.repairing_frame[1]).zfill(4)))
 
                     with self.read_lock:
                         if not os.path.isfile(expected_file):
@@ -187,7 +186,7 @@ class VideoRecorder(object):
 
                 # Wait for the next iteration
                 current_time = time.time()
-                while int(round((((current_time - int(current_time)) / 100) * self.fps) * 100, 1)) + 1 != 1:
+                while int(round((current_time - int(current_time)) * self.fps, 1)) + 1 != 1:
                     current_time = time.time()
         except Exception as ex:
             self.logger.error("Error fixing missing frames."
