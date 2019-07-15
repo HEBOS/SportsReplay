@@ -66,7 +66,7 @@ class VideoRecorder(object):
         try:
             ret, image = self.capture.read()
             if ret:
-                frame_number = int(round((((current_time - int(current_time)) / 100) * self.fps) * 100, 1)) + 1
+                frame_number = int(round((current_time - int(current_time)) * self.fps, 1)) + 1
 
                 if self.firstFrame is None:
                     self.firstFrame = (int(current_time), frame_number)
