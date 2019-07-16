@@ -9,15 +9,15 @@ import cv2
 from Recorder.CapturedFrame import CapturedFrame
 from Recorder.VideoCaptureAsync import VideoCaptureAsync
 from Shared.LogHandler import LogHandler
+from Shared.SharedFunctions import SharedFunctions
 
 
 class VideoRecorder(object):
     def __init__(self, camera_number, video_source, target_path, fps,
-                 scheduled_end_of_recording, client, playground):
+                 scheduled_end_of_recording, playground):
         # Redirect OpenCV errors
         cv2.redirectError(self.cv2error)
 
-        self.client = client
         self.playground = playground
         self.casting = True
         self.video_source = video_source
@@ -73,12 +73,12 @@ class VideoRecorder(object):
 
                 self.lastRecordedFrame = (int(current_time), frame_number)
 
-                file_path = os.path.normpath(
-                    r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.png"
-                        .format(target_path=self.target_path,
-                                camera_number=self.camera_number,
-                                currentTime=int(current_time),
-                                frameNumber=str(frame_number).zfill(4)))
+                file_path = SharedFunctions.get_recording_file_name(
+                    self.target_path,
+                    self.camera_number,
+                    int(current_time),
+                    frame_number
+                )
 
             if not self.frameQueue.full():
                 self.frameQueue.put_nowait(CapturedFrame(image, file_path))
@@ -164,18 +164,19 @@ class VideoRecorder(object):
 
                 # Repair next (fps) number of frames
                 for i in range(1, self.fps + 1):
-                    previous_file = os.path.normpath(
-                        r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.png"
-                            .format(target_path=self.target_path,
-                                    camera_number=self.camera_number,
-                                    currentTime=previous_frame[0],
-                                    frameNumber=str(previous_frame[1]).zfill(4)))
-                    expected_file = os.path.normpath(
-                        r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.png"
-                            .format(target_path=self.target_path,
-                                    camera_number=self.camera_number,
-                                    currentTime=self.repairing_frame[0],
-                                    frameNumber=str(self.repairing_frame[1]).zfill(4)))
+                    previous_file = SharedFunctions.get_recording_file_name(
+                        self.target_path,
+                        self.camera_number,
+                        previous_frame[0],
+                        previous_frame[1]
+                    )
+
+                    expected_file = SharedFunctions.get_recording_file_name(
+                        self.target_path,
+                        self.camera_number,
+                        self.repairing_frame[0],
+                        self.repairing_frame[1]
+                    )
 
                     with self.read_lock:
                         if not os.path.isfile(expected_file):
