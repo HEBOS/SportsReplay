@@ -3,26 +3,29 @@ import time
 import multiprocessing as mp
 import cv2
 import os
-import subprocess
-import platform
 
 from Shared.Configuration import Configuration
+from Shared.SharedFunctions import SharedFunctions
 from Recorder.VideoRecorder import VideoRecorder
 
 
-def start_single_camera(camera_number, address, path, fps, scheduled_end_of_recording, config):
-    client = int(config.common["client"])
+def start_single_camera(camera_number, address, path, fps, start_of_recording, scheduled_end_of_recording, config):
+    building = config.common["building"]
     playground = config.common["playground"]
 
     if not os.path.isdir(path):
         os.mkdir(path)
 
+    recording_path = SharedFunctions.get_recording_path(path, building, playground, start_of_recording)
+
+    if not os.path.isdir(recording_path):
+        os.mkdir(recording_path)
+
     video = VideoRecorder(camera_number,
                           address,
-                          path,
+                          recording_path,
                           fps,
                           scheduled_end_of_recording,
-                          client,
                           playground)
     video.record()
 
@@ -30,6 +33,7 @@ def start_single_camera(camera_number, address, path, fps, scheduled_end_of_reco
 def run_main():
     config = Configuration()
     eor = time.time() + int(config.common["playtime"])
+    sor = time.time()
     video_addresses = str(config.recorder["video"]).split(",")
     recording_path = os.path.normpath(r"{}".format(config.recorder["recording-path"]))
 
@@ -45,6 +49,7 @@ def run_main():
                                           v,
                                           os.path.normpath(r"{}/{}".format(recording_path, i)),
                                           int(config.recorder["fps"]),
+                                          sor,
                                           eor,
                                           config)))
 
