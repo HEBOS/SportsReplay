@@ -7,6 +7,7 @@ import os
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 from Recorder.VideoRecorder import VideoRecorder
+from ActivityDetector.Detector import Detector
 
 
 def start_single_camera(camera_number, address, path, fps, start_of_recording, scheduled_end_of_recording, config):
@@ -28,6 +29,10 @@ def start_single_camera(camera_number, address, path, fps, start_of_recording, s
                           scheduled_end_of_recording,
                           playground)
     video.record()
+
+
+def start_activity_detection(camera_count, recording_path):
+    detector = Detector(recording_path, camera_count)
 
 
 def run_main():
@@ -52,6 +57,8 @@ def run_main():
                                           sor,
                                           eor,
                                           config)))
+
+    processes.append(mp.Process(target=start_activity_detection, args=(i, recording_path)))
 
     for p in processes:
         p.start()
