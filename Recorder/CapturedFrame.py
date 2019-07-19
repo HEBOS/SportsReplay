@@ -17,4 +17,6 @@ class CapturedFrame(object):
     def save_file(self):
         image = cv2.UMat(self.frame)
         cv2.imwrite(self.filePath, image)
-        self.queue.put(self.frame)
+
+        if self.frame_number % 30 == 1:
+            self.queue.put(self.frame)
