@@ -1,22 +1,13 @@
-
-
-# USAGE
-# python maskrcnn_predict.py --weights mask_rcnn_coco.h5 --labels coco_labels.txt --image images/30th_birthday.jpg
-
-# import the necessary packages
 from ActivityDetector.AiModelConfig import AiModelConfig
 from Mask_RCNN.mrcnn import model as modellib
 from Shared.Configuration import Configuration
 # from mrcnn import visualize
 import numpy as np
 import colorsys
-import argparse
 import imutils
-# import random
 import cv2
 import os
 import datetime
-from pathlib import Path
 
 
 class Detector(object):
