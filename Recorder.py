@@ -31,8 +31,8 @@ def start_single_camera(camera_number, address, path, fps, start_of_recording, s
     video.record()
 
 
-def start_activity_detection(camera_count, recording_path):
-    detector = Detector(recording_path, camera_count)
+def start_activity_detection(ai_queues):
+    detector = Detector(ai_queues)
 
 
 def run_main():
@@ -45,10 +45,12 @@ def run_main():
     if not os.path.isdir(recording_path):
         os.mkdir(recording_path)
 
+    ai_queues = []
     processes = []
     i = 0
     for v in video_addresses:
         i += 1
+        ai_queues.append(mp.Queue())
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
                                           v,
@@ -58,7 +60,7 @@ def run_main():
                                           eor,
                                           config)))
 
-    processes.append(mp.Process(target=start_activity_detection, args=(i, recording_path)))
+    processes.append(mp.Process(target=start_activity_detection, args=(ai_queues,)))
 
     for p in processes:
         p.start()

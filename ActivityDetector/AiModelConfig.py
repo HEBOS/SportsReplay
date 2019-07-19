@@ -1,7 +1,10 @@
+from Shared.Configuration import Configuration
 from Mask_RCNN.mrcnn.config import Config
 
-class MLModelConfig(Config):
-    labels = "coco_labels.txt"
+
+class AiModelConfig(Config):
+
+    labels = Configuration().activity_detector["labels"]
     CLASS_NAMES = open(labels).read().strip().split("\n")
     # give the configuration a recognizable name
     NAME = "coco_inference"

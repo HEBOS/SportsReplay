@@ -14,7 +14,7 @@ from Shared.SharedFunctions import SharedFunctions
 
 class VideoRecorder(object):
     def __init__(self, camera_number, video_source, target_path, fps,
-                 scheduled_end_of_recording, playground):
+                 scheduled_end_of_recording, playground, ai_queue):
         # Redirect OpenCV errors
         cv2.redirectError(self.cv2error)
 
@@ -24,6 +24,7 @@ class VideoRecorder(object):
         self.camera_number = camera_number
         self.target_path = target_path
         self.scheduled_end_of_recording = scheduled_end_of_recording
+        self.ai_queue = ai_queue
 
         # Fixed settings
         self.fps = fps
@@ -80,8 +81,8 @@ class VideoRecorder(object):
                     frame_number
                 )
 
-            if not self.frameQueue.full():
-                self.frameQueue.put_nowait(CapturedFrame(image, file_path))
+                if not self.frameQueue.full():
+                    self.frameQueue.put_nowait(CapturedFrame(image, file_path, self.ai_queue, frame_number))
         except Exception as ex:
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera_number, self.playground))
