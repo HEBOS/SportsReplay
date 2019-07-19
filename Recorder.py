@@ -32,7 +32,7 @@ def start_single_camera(camera_number, address, path, fps, start_of_recording, s
 
 
 def start_activity_detection(ai_queues):
-    detector = Detector(ai_queues)
+    Detector(ai_queues).detect()
 
 
 def run_main():
