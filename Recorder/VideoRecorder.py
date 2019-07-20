@@ -128,7 +128,7 @@ class VideoRecorder(object):
     # Finishes the video recording therefore the thread too
     def stop(self):
         # putting poison pill in ai_queue
-        self.ai_queue.put(None)
+        self.ai_queue.put_nowait(None)
 
         self.frameProcessingStop = True
         self.frameProcessingThread.join()

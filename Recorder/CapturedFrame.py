@@ -26,7 +26,7 @@ class CapturedFrame(object):
         cv2.imwrite(self.filePath, image)
 
         if self.frame_number % self.fps == 1:
-            self.queue.put(self.frame)
+            self.queue.put_nowait(self.frame)
 
     def save_json_async(self):
         single_thread = threading.Thread(target=self.save_json(), args=())
