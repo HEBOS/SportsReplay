@@ -52,3 +52,11 @@ class SharedFunctions(object):
                 currentTime=current_time,
                 frameNumber=str(frame_number).zfill(4)
             ))
+
+    @staticmethod
+    def get_json_file_path(output_directory, png_filename):
+        return os.path.normpath(
+            r"{output_directory}/{png_filename}.json".format(
+                output_directory=output_directory,
+                png_filename=png_filename
+            ))

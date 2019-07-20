@@ -18,7 +18,7 @@ class Detector(object):
         self.output_threads = []
 
         config = Configuration().activity_detector
-        self.output_directory = config["output-directory"]
+        self.output_directory = self.get_output_directory(config)
         self.class_names = self.get_class_names(config)
         self.sports_ball_id = self.class_names.index("sports ball")
         self.model = self.init_ai_model(config)
@@ -107,6 +107,12 @@ class Detector(object):
     def stop(self):
         self.stop_detection = True
         self.detection_thread.join()
+
+    def get_output_directory(self, config):
+        output_directory = os.path.normpath(r"{}".format(config["output-directory"]))
+        if not os.path.isdir(output_directory):
+            os.mkdir(output_directory)
+        return output_directory
 
     def get_class_names(self, config):
         labels = config["labels"]

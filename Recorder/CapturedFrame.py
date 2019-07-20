@@ -2,6 +2,8 @@ import cv2
 import threading
 import json
 
+from Shared.SharedFunctions import SharedFunctions
+
 
 class CapturedFrame(object):
     def __init__(self, frame, file_path, filename, queue, frame_number, fps):
@@ -32,5 +34,6 @@ class CapturedFrame(object):
         return single_thread
 
     def save_json(self):
-        with open(self.json_directory + self.filename + ".json", 'w', encoding='utf-8') as f:
+        json_file_path = SharedFunctions.get_json_file_path(self.json, self.filename)
+        with open(json_file_path, 'w', encoding='utf-8') as f:
             json.dump(self.json, f, ensure_ascii=False, indent=4)
