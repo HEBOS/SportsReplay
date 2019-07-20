@@ -74,15 +74,18 @@ class VideoRecorder(object):
 
                 self.lastRecordedFrame = (int(current_time), frame_number)
 
-                file_path = SharedFunctions.get_recording_file_name(
+                file_path = SharedFunctions.get_recording_file_path(
                     self.target_path,
                     self.camera_number,
                     int(current_time),
                     frame_number
                 )
 
+                filename = SharedFunctions.get_recording_file_name(self.camera_number, int(current_time), frame_number)
+
                 if not self.frameQueue.full():
-                    self.frameQueue.put_nowait(CapturedFrame(image, file_path, self.ai_queue, frame_number, self.fps))
+                    self.frameQueue.put_nowait(CapturedFrame(image, file_path, filename, self.ai_queue,
+                                                             frame_number, self.fps))
         except Exception as ex:
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera_number, self.playground))
@@ -124,6 +127,9 @@ class VideoRecorder(object):
 
     # Finishes the video recording therefore the thread too
     def stop(self):
+        # putting poison pill in ai_queue
+        self.ai_queue.put(None)
+
         self.frameProcessingStop = True
         self.frameProcessingThread.join()
         if self.casting:
@@ -165,14 +171,14 @@ class VideoRecorder(object):
 
                 # Repair next (fps) number of frames
                 for i in range(1, self.fps + 1):
-                    previous_file = SharedFunctions.get_recording_file_name(
+                    previous_file = SharedFunctions.get_recording_file_path(
                         self.target_path,
                         self.camera_number,
                         previous_frame[0],
                         previous_frame[1]
                     )
 
-                    expected_file = SharedFunctions.get_recording_file_name(
+                    expected_file = SharedFunctions.get_recording_file_path(
                         self.target_path,
                         self.camera_number,
                         self.repairing_frame[0],
