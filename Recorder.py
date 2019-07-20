@@ -7,6 +7,7 @@ import os
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 from Recorder.VideoRecorder import VideoRecorder
+from ActivityDetector.Detector import Detector
 
 
 def start_single_camera(camera_number, address, path, fps, start_of_recording, scheduled_end_of_recording, config):
@@ -30,6 +31,10 @@ def start_single_camera(camera_number, address, path, fps, start_of_recording, s
     video.record()
 
 
+def start_activity_detection(ai_queues):
+    Detector(ai_queues)
+
+
 def run_main():
     config = Configuration()
     eor = time.time() + int(config.common["playtime"])
@@ -40,10 +45,12 @@ def run_main():
     if not os.path.isdir(recording_path):
         os.mkdir(recording_path)
 
+    ai_queues = []
     processes = []
     i = 0
     for v in video_addresses:
         i += 1
+        ai_queues.append(mp.Queue())
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
                                           v,
@@ -52,6 +59,8 @@ def run_main():
                                           sor,
                                           eor,
                                           config)))
+
+    processes.append(mp.Process(target=start_activity_detection, args=(ai_queues,)))
 
     for p in processes:
         p.start()
