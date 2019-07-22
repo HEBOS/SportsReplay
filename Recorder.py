@@ -51,7 +51,7 @@ def run_main():
     i = 0
     for v in video_addresses:
         i += 1
-        ai_queue = mp.Queue
+        ai_queue = mp.Queue()
         ai_queues.append(ai_queue)
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
