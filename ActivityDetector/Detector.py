@@ -31,7 +31,7 @@ class Detector(object):
         queue_index_to_is_queue_empty = {}
         for index, ai_queue in enumerate(self.ai_queues):
             queue_index_to_is_first_frame_retrieved[index] = False
-            queue_index_to_is_queue_empty = True
+            queue_index_to_is_queue_empty[index] = True
 
         number_of_queues = len(self.ai_queues)
         first_frames_retrieved = 0
