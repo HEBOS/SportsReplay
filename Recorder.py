@@ -10,7 +10,7 @@ from Recorder.VideoRecorder import VideoRecorder
 from ActivityDetector.Detector import Detector
 
 
-def start_single_camera(camera_number, address, path, fps, start_of_recording, scheduled_end_of_recording, config):
+def start_single_camera(camera_number, address, path, fps, start_of_recording, scheduled_end_of_recording, config, ai_queue):
     building = config.common["building"]
     playground = config.common["playground"]
 
@@ -27,7 +27,8 @@ def start_single_camera(camera_number, address, path, fps, start_of_recording, s
                           recording_path,
                           fps,
                           scheduled_end_of_recording,
-                          playground)
+                          playground,
+                          ai_queue)
     video.record()
 
 
@@ -50,7 +51,8 @@ def run_main():
     i = 0
     for v in video_addresses:
         i += 1
-        ai_queues.append(mp.Queue())
+        ai_queue = mp.Queue()
+        ai_queues.append(ai_queue)
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
                                           v,
@@ -58,7 +60,8 @@ def run_main():
                                           int(config.recorder["fps"]),
                                           sor,
                                           eor,
-                                          config)))
+                                          config,
+                                          ai_queue)))
 
     processes.append(mp.Process(target=start_activity_detection, args=(ai_queues,)))
 

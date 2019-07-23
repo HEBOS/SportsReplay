@@ -6,7 +6,8 @@ import platform
 
 class Configuration(object):
     def __init__(self):
-        location = "/etc/sports-replay"
+        # location = "/etc/sports-replay"
+        location = "Shared/sports-replay.ini"
         self.recorder = {}
         self.activity_detector = {}
         self.logger = {}
