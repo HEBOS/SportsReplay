@@ -53,9 +53,14 @@ def run_main():
         i += 1
         ai_queue = mp.Queue()
         ai_queues.append(ai_queue)
+
+        video_path = v
+        if ".mp4" in v:
+            video_path = os.path.normpath(r"{}".format(v))
+
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
-                                          v,
+                                          video_path,
                                           os.path.normpath(r"{}/{}".format(recording_path, i)),
                                           int(config.recorder["fps"]),
                                           sor,
