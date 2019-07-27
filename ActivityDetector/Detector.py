@@ -4,6 +4,7 @@ import threading
 
 import cv2
 import imutils
+import time
 
 from ActivityDetector.AiModelConfig import AiModelConfig
 from Mask_RCNN.mrcnn import model as modellib
@@ -17,16 +18,15 @@ class Detector(object):
         self.stop_detection = False
         self.output_threads = []
 
-        config = Configuration().activity_detector
-        self.output_directory = self.get_output_directory(config)
-        self.class_names = self.get_class_names(config)
+        self.config = Configuration().activity_detector
+        self.output_directory = self.get_output_directory()
+        self.class_names = self.get_class_names()
         self.sports_ball_id = self.class_names.index("sports ball")
-        self.model = self.init_ai_model(config)
 
-        self.detection_thread = threading.Thread(target=self.detect, args=())
-        self.detection_thread.start()
+        self.start_detection()
 
     def detect(self):
+        model = self.init_ai_model()
         queue_index_to_is_first_frame_retrieved = {}
         queue_index_to_is_queue_empty = {}
         for index, ai_queue in enumerate(self.ai_queues):
@@ -41,7 +41,6 @@ class Detector(object):
             for index, ai_queue in enumerate(self.ai_queues):
                 try:
                     captured_frame = ai_queue.get(block=False)
-
                     # poison pill found; aborting detection
                     if captured_frame is None:
                         self.stop_detection = True
@@ -70,9 +69,8 @@ class Detector(object):
                             break
                     continue
 
-                result = self.model.detect([image], verbose=1)[0]
+                result = model.detect([image], verbose=1)[0]
 
-                balls_identified = 0
                 output_json_array = []
 
                 for i in range(0, len(result["scores"])):
@@ -83,18 +81,16 @@ class Detector(object):
                         score = result["scores"][i]
 
                         output_json = {
-                            "foundBall": True,
-                            "x0": startX,
-                            "y0": startY,
-                            "x1": endX,
-                            "y1": endY,
-                            "score": score
+                            "x0": int(startX),
+                            "y0": int(startY),
+                            "x1": int(endX),
+                            "y1": int(endY),
+                            "score": int(score)
                         }
 
                         output_json_array.append(output_json)
-                        balls_identified += 1
 
-                if balls_identified > 1:
+                if len(output_json_array) > 1:
                     print("[!] More than one ball identified in frame!")
 
                 captured_frame.json = output_json_array
@@ -104,24 +100,29 @@ class Detector(object):
         for thread in self.output_threads:
             thread.join()
 
+    def start_detection(self):
+        detection_thread = threading.Thread(target=self.detect, args=())
+        detection_thread.start()
+        detection_thread.join()
+
     def stop(self):
         self.stop_detection = True
         self.detection_thread.join()
 
-    def get_output_directory(self, config):
-        output_directory = os.path.normpath(r"{}".format(config["output-directory"]))
+    def get_output_directory(self):
+        output_directory = os.path.normpath(r"{}".format(self.config["output-directory"]))
         if not os.path.isdir(output_directory):
             os.mkdir(output_directory)
         return output_directory
 
-    def get_class_names(self, config):
-        labels = config["labels"]
+    def get_class_names(self):
+        labels = self.config["labels"]
         return open(labels).read().strip().split("\n")
 
-    def init_ai_model(self, config):
+    def init_ai_model(self):
         ai_model_config = AiModelConfig()
 
         model = modellib.MaskRCNN(mode="inference", config=ai_model_config, model_dir=os.getcwd())
-        model.load_weights(config["weights"], by_name=True)
+        model.load_weights(self.config["weights"], by_name=True)
 
         return model

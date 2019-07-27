@@ -84,8 +84,11 @@ class VideoRecorder(object):
                 filename = SharedFunctions.get_recording_file_name(self.camera_number, int(current_time), frame_number)
 
                 if not self.frameQueue.full():
-                    self.frameQueue.put_nowait(CapturedFrame(image, file_path, filename, self.ai_queue,
-                                                             frame_number, self.fps))
+                    captured_frame = CapturedFrame(image, file_path, filename, frame_number, self.fps)
+                    self.frameQueue.put_nowait(captured_frame)
+                    if frame_number % self.fps == 1:
+                        self.ai_queue.put_nowait(captured_frame)
+
         except Exception as ex:
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera_number, self.playground))
