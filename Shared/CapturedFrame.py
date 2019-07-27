@@ -1,13 +1,13 @@
 import cv2
 import threading
 import json
-
+import numpy as np
 from Shared.SharedFunctions import SharedFunctions
 import Shared.Camera as Camera
 
 
 class CapturedFrame(object):
-    def __init__(self, camera: Camera, frame: int, file_path: str, filename: str, frame_number: int):
+    def __init__(self, camera: Camera, frame, file_path: str, filename: str, frame_number: int):
         self.camera = camera
         self.frame = frame
         self.filePath = file_path
@@ -22,7 +22,7 @@ class CapturedFrame(object):
         return single_thread
 
     def save_file(self):
-        image = cv2.UMat(self.frame)
+        image = np.float32(self.frame)
         cv2.imwrite(self.filePath, image)
 
         # if self.frame_number % self.camera.fps == 1:

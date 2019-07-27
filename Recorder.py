@@ -19,7 +19,7 @@ def start_single_camera(camera_id: int, source: str, fps: int, width: int, heigh
                     client, building, playground, target_path, start_of_capture, end_of_capture)
 
     video = VideoRecorder(camera)
-    video.record()
+    video.start()
 
 
 def start_activity_detection(ai_queues):
