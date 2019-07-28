@@ -90,12 +90,14 @@ class Detector(object):
 
                         output_json_array.append(output_json)
 
-                if len(output_json_array) > 1:
-                    print("[!] More than one ball identified in frame!")
+                balls_identified = len(output_json_array)
 
-                captured_frame.json = output_json_array
-                captured_frame.json_directory = self.output_directory
-                self.output_threads.append(captured_frame.save_json_async())
+                if balls_identified > 0:
+                    if balls_identified > 1:
+                        print("[!] More than one ball identified in frame!")
+                    captured_frame.json = output_json_array
+                    captured_frame.json_directory = self.output_directory
+                    self.output_threads.append(captured_frame.save_json_async())
 
         for thread in self.output_threads:
             thread.join()

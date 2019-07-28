@@ -46,12 +46,12 @@ def run_main():
     if not os.path.isdir(recording_path):
         os.mkdir(recording_path)
 
-    ai_queues = []
+    ai_queues = mp.Manager().list()
     processes = []
     i = 0
     for v in video_addresses:
         i += 1
-        ai_queue = mp.Queue()
+        ai_queue = mp.Manager().Queue()
         ai_queues.append(ai_queue)
 
         video_path = v
