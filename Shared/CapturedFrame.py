@@ -1,8 +1,6 @@
 import cv2
 import threading
 import json
-import numpy as np
-import multiprocessing as mp
 from Shared.SharedFunctions import SharedFunctions
 import Shared.Camera as Camera
 
