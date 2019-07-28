@@ -54,9 +54,5 @@ class SharedFunctions(object):
             ))
 
     @staticmethod
-    def get_json_file_path(output_directory, jpg_filename):
-        return os.path.normpath(
-            r"{output_directory}/{jpg_filename}.json".format(
-                output_directory=output_directory,
-                jpg_filename=jpg_filename
-            ))
+    def get_json_file_path(file_path: str):
+        return file_path.replace(".jpg", ".json")
