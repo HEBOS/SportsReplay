@@ -93,3 +93,4 @@ Werkzeug==0.15.4
 widgetsnbextension==3.5.0
 wrapt==1.11.2
 mrcnn==0.2
+opencv-python==4.1.0.25
