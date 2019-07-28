@@ -16,10 +16,5 @@ class Camera(object):
         self.building = building
         self.playground = playground
         self.targetPath = target_path
-        self.captureQueue = queue.Queue(maxsize=10000)
-        self.aiQueue = mp.Queue(maxsize=10000)
         self.start_of_capture = start_of_capture
         self.end_of_capture = end_of_capture
-
-    def add_frame(self, frame: CapturedFrame):
-        self.captureQueue.put(frame)

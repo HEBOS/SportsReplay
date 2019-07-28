@@ -3,6 +3,7 @@ import time
 import logging
 import cv2
 import concurrent.futures
+import multiprocessing as mp
 from Shared.LogHandler import LogHandler
 from Shared.SharedFunctions import SharedFunctions
 from Shared.Camera import Camera
@@ -10,8 +11,9 @@ from Shared.CapturedFrame import CapturedFrame
 
 
 class VideoRecorder(object):
-    def __init__(self, camera: Camera):
+    def __init__(self, camera: Camera, ai_queue: mp.Queue):
         self.camera = camera
+        self.ai_queue = ai_queue
 
         # Redirect OpenCV errors
         cv2.redirectError(self.cv2error)
@@ -24,10 +26,6 @@ class VideoRecorder(object):
         self.capture = None
         self.capturing = True
         self.captureThread = None
-        self.frameReadTasks = []
-
-        # Logger support
-        self.logger = LogHandler("recording")
 
     def start(self):
         try:
@@ -35,14 +33,13 @@ class VideoRecorder(object):
             self.captureThread = threading.Thread(target=self.record, args=())
             self.captureThread.start()
 
-            # print("Starting at {}".format(self.camera.start_of_capture))
-
             while (time.time() < self.camera.end_of_capture) and self.capturing:
                 time.sleep(1)
         except Exception as ex:
             print(ex)
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera.id, self.camera.playground))
+
         finally:
             print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
             self.capturing = False
@@ -62,6 +59,8 @@ class VideoRecorder(object):
             self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
             self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
 
+            write_tasks = []
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                 snapshot_time = time.time()
                 frame_number = 0
@@ -71,10 +70,11 @@ class VideoRecorder(object):
                     while time.time() - snapshot_time <= 1 / self.camera.fps:
                         pass
 
-                    snapshot_time = time.time()
                     frame_number += 1
-                    if frame_number > self.camera.fps + 1:
+                    if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
                         frame_number = 1
+
+                    snapshot_time = time.time()
 
                     grabbed = self.capture.grab()
                     if grabbed:
@@ -92,27 +92,32 @@ class VideoRecorder(object):
                         cv2.waitKey(1)
                         captured_frame = CapturedFrame(self.camera,
                                                        frame,
-                                                       file_path, filename,
+                                                       file_path,
+                                                       filename,
                                                        frame_number)
-                        frame_read_task = executor.submit(self.save_captured_file, captured_frame)
-                        self.frameReadTasks.append(frame_read_task)
-                concurrent.futures.wait(fs=self.frameReadTasks, return_when="ALL_COMPLETED")
+                        if captured_frame.frame_number % self.camera.fps == 1:
+                            self.ai_queue.put_nowait(captured_frame)
+
+                        frame_read_task = executor.submit(captured_frame.save_file)
+                        write_tasks.append(frame_read_task)
+                # concurrent.futures.wait(fs=write_tasks, return_when="ALL_COMPLETED")
         except cv2.error as e:
+            self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera.id, self.camera.playground))
         finally:
+            self.stop_ai()
             if self.capture is not None:
                 self.capture.release()
             cv2.destroyAllWindows()
-            self.capturing = False
 
-    def save_captured_file(self, captured_frame: CapturedFrame):
-        cv2.imwrite(captured_frame.filePath, captured_frame.frame)
+    def stop_ai(self):
+        # putting poison pill in ai_queue
+        self.ai_queue.put_nowait(None)
 
     # Finishes the video recording therefore the thread too
     def stop(self):
-        # putting poison pill in ai_queue
-        self.camera.aiQueue.put_nowait(None)
+        self.stop_ai()
 
         if self.capturing:
             self.capturing = False
