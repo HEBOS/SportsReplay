@@ -1,7 +1,4 @@
-import multiprocessing as mp
 import time
-import queue
-import Shared.CapturedFrame as CapturedFrame
 
 
 class Camera(object):

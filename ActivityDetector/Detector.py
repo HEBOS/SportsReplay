@@ -4,7 +4,6 @@ import threading
 
 import cv2
 import imutils
-import time
 
 from ActivityDetector.AiModelConfig import AiModelConfig
 from Mask_RCNN.mrcnn import model as modellib
@@ -90,24 +89,24 @@ class Detector(object):
 
                         output_json_array.append(output_json)
 
-                if len(output_json_array) > 1:
-                    print("[!] More than one ball identified in frame!")
+                balls_identified = len(output_json_array)
 
-                captured_frame.json = output_json_array
-                self.output_threads.append(captured_frame.save_json())
+                if balls_identified > 0:
+                    if balls_identified > 1:
+                        print("[!] More than one ball identified in frame!")
+                    captured_frame.json = output_json_array
+                    self.output_threads.append(captured_frame.save_json())
 
         for thread in self.output_threads:
             thread.join()
 
     def start_detection(self):
-        detection_thread = threading.Thread(target=self.detect, args=())
-        detection_thread.start()
-        detection_thread.join()
+        self.detection_thread = threading.Thread(target=self.detect, args=())
+        self.detection_thread.start()
+        self.detection_thread.join()
 
     def stop(self):
         self.stop_detection = True
-        if self.detection_thread is not None:
-            self.detection_thread.join()
 
     def get_class_names(self):
         labels = self.config["labels"]
