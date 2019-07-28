@@ -84,7 +84,8 @@ def run_main():
                                           start_of_capture,
                                           end_of_capture,
                                           ai_queue)))
-        processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
+
+    processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
 
     for p in processes:
         p.start()
