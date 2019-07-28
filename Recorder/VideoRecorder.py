@@ -107,8 +107,8 @@ class VideoRecorder(object):
                 self.stop_ai()
                 if self.capture is not None:
                     self.capture.release()
-                cv2.destroyAllWindows()
                 concurrent.futures.wait(fs=write_tasks, return_when="ALL_COMPLETED")
+                cv2.destroyAllWindows()
 
     def stop_ai(self):
         # putting poison pill in ai_queue
