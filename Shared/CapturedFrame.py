@@ -1,5 +1,4 @@
 import cv2
-import threading
 import json
 from Shared.SharedFunctions import SharedFunctions
 import Shared.Camera as Camera
@@ -18,12 +17,6 @@ class CapturedFrame(object):
         cv2.imwrite(self.filePath, self.frame)
 
     def save_json(self):
-        single_thread = threading.Thread(target=self.save_json_async(), args=())
-        single_thread.start()
-        return single_thread
-
-    def save_json_async(self):
         json_file_path = SharedFunctions.get_json_file_path(self.filePath)
-        print(json_file_path)
         with open(json_file_path, 'w', encoding='utf-8') as f:
             json.dump(self.json, f, ensure_ascii=False, indent=4)

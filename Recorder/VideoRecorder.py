@@ -51,17 +51,16 @@ class VideoRecorder(object):
             time.sleep(.010)
         print("Expected start {}. Started at {}".format(self.camera.start_of_capture, time.time()))
 
-        try:
-            self.capture = cv2.VideoCapture(self.camera.source)
-            self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera.width)
-            self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera.height)
-            self.capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
-            self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            try:
+                self.capture = cv2.VideoCapture(self.camera.source)
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera.width)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera.height)
+                self.capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
+                self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+                self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
 
-            write_tasks = []
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                write_tasks = []
                 snapshot_time = time.time()
                 frame_number = 0
 
@@ -100,16 +99,16 @@ class VideoRecorder(object):
 
                         frame_read_task = executor.submit(captured_frame.save_file)
                         write_tasks.append(frame_read_task)
-                # concurrent.futures.wait(fs=write_tasks, return_when="ALL_COMPLETED")
-        except cv2.error as e:
-            self.capturing = False
-            self.logger.error("Camera {}, on playground {} is not responding."
-                              .format(self.camera.id, self.camera.playground))
-        finally:
-            self.stop_ai()
-            if self.capture is not None:
-                self.capture.release()
-            cv2.destroyAllWindows()
+            except cv2.error as e:
+                self.capturing = False
+                self.logger.error("Camera {}, on playground {} is not responding."
+                                  .format(self.camera.id, self.camera.playground))
+            finally:
+                self.stop_ai()
+                if self.capture is not None:
+                    self.capture.release()
+                cv2.destroyAllWindows()
+                concurrent.futures.wait(fs=write_tasks, return_when="ALL_COMPLETED")
 
     def stop_ai(self):
         # putting poison pill in ai_queue

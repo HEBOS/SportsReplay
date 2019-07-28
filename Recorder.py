@@ -22,8 +22,8 @@ def start_single_camera(camera_id: int, source: str, fps: int, width: int, heigh
     video.start()
 
 
-def start_activity_detection(ai_queues):
-    Detector(ai_queues)
+def start_activity_detection(playground: int, ai_queues: list):
+    Detector(playground, ai_queues)
     pass
 
 
@@ -84,7 +84,7 @@ def run_main():
                                           start_of_capture,
                                           end_of_capture,
                                           ai_queue)))
-        processes.append(mp.Process(target=start_activity_detection, args=(ai_queues,)))
+        processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
 
     for p in processes:
         p.start()
