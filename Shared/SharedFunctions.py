@@ -1,7 +1,8 @@
 import os
 import time
-import shutil
 import ntpath
+from typing import List
+
 
 class SharedFunctions(object):
     @staticmethod
@@ -51,6 +52,12 @@ class SharedFunctions(object):
         SharedFunctions.create_text_file(ready_flag_file, "")
 
     @staticmethod
+    def create_list_file(file_path: str, lines: List[str]):
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.writelines(map(lambda s: s + '\n', lines))
+            f.close()
+
+    @staticmethod
     def remove_flag_file(root_path: str):
         ready_flag_file = os.path.normpath("{}/READY.TXT").format(root_path)
         os.remove(ready_flag_file)
@@ -61,5 +68,5 @@ class SharedFunctions(object):
 
     @staticmethod
     def get_time_from_file(file_path: str) -> str:
-        return SharedFunctions.get_file_name_only(file_path).replace("frame_", "")
+        return SharedFunctions.get_file_name_only(file_path).replace("frame_", "").replace("_", ".")
 

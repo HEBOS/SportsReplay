@@ -25,5 +25,5 @@ class CameraJson(object):
         except:
             return 0
 
-    def get_time(self) -> str:
-        return SharedFunctions.get_time_from_file(self.json_file_path)
+    def get_time(self) -> float:
+        return float(SharedFunctions.get_time_from_file(self.json_file_path))

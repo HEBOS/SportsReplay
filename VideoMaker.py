@@ -26,6 +26,10 @@ def run_main():
     video_making_path = os.path.normpath(r"{}".format(config.video_maker["video-making-path"]))
     SharedFunctions.ensure_directory_exists(video_making_path)
 
+    # Ensure that streaming directory exists
+    streaming_path = os.path.normpath(r"{}".format(config.video_maker["streaming-path"]))
+    SharedFunctions.ensure_directory_exists(streaming_path)
+
     video_addresses = str(config.recorder["video"]).split(",")
     number_of_cameras = len(video_addresses)
     stopped = False
@@ -39,7 +43,7 @@ def run_main():
             directory = directories[0]
 
             # Wait max 1 minute for READY.TXT to appear in the directory.
-            flag_file = os.path.normpath(r"{}/READY.TXT").format(directory)
+            flag_file = os.path.normpath(r"{}/{}/READY.TXT").format(root_post_recording_path, directory)
             started_waiting = time.time()
             while not os.path.isfile(flag_file):
                 time.sleep(1)
@@ -48,18 +52,22 @@ def run_main():
 
             # If file appeared eventually, start video making process.
             if os.path.isfile(flag_file):
-                # Move directory to where video maker will output files
-                new_path = directory.replace(root_recording_path, video_making_path)
-                os.rename(directory, new_path)
-                VideoMakerEngine.process(directory, number_of_cameras)
+                # Move directory to directory where video maker will output files
+                full_directory_path = os.path.normpath(r"{}/{}").format(root_post_recording_path, directory)
+                new_path = full_directory_path.replace(root_post_recording_path, video_making_path)
+                os.rename(full_directory_path, new_path)
+                VideoMakerEngine.process(new_path,
+                                         number_of_cameras,
+                                         streaming_path,
+                                         directory)
         else:
             print("No recordings to process. Pausing for 5 seconds.")
-            time.sleep(5000)
+            time.sleep(5)
 
         k = cv2.waitKey(100)
         if k == 27:
             print("VideoMaker has been terminated.")
-            break
+            stopped = True
 
 
 if __name__ == "__main__":
