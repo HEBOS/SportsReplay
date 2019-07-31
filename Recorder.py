@@ -3,6 +3,7 @@ import time
 import multiprocessing as mp
 import cv2
 import os
+import shutil
 
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -35,11 +36,14 @@ def run_main():
     end_of_capture = start_of_capture + int(config.common["playtime"])
 
     video_addresses = str(config.recorder["video"]).split(",")
-    root_path = os.path.normpath(r"{}".format(config.recorder["recording-path"]))
 
-    # Ensure that root recording folder exists
-    if not os.path.isdir(root_path):
-        os.mkdir(root_path)
+    # Ensure that root recording directory exists
+    root_recording_path = os.path.normpath(r"{}".format(config.recorder["recording-path"]))
+    SharedFunctions.ensure_directory_exists(root_recording_path)
+
+    # Ensure that root post recording directory exists
+    root_post_recording_path = os.path.normpath(r"{}".format(config.post_recorder["post-recording-path"]))
+    SharedFunctions.ensure_directory_exists(root_post_recording_path)
 
     ai_queues = []
     processes = []
@@ -51,10 +55,9 @@ def run_main():
     playground = int(config.common["playground"])
     fps = int(config.recorder["fps"])
 
-    # Ensure session folder exists
-    session_path = SharedFunctions.get_recording_path(root_path, building, playground, start_of_capture)
-    if not os.path.isdir(session_path):
-        os.mkdir(session_path)
+    # Ensure session directory exists
+    session_path = SharedFunctions.get_recording_path(root_recording_path, building, playground, start_of_capture)
+    SharedFunctions.ensure_directory_exists(session_path)
 
     for v in video_addresses:
         i += 1
@@ -66,10 +69,9 @@ def run_main():
         if ".mp4" in v:
             source_path = os.path.normpath(r"{}".format(v))
 
-        # Ensure folder for particular camera exists
+        # Ensure directory for particular camera exists
         camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
-        if not os.path.isdir(camera_path):
-            os.mkdir(camera_path)
+        SharedFunctions.ensure_directory_exists(camera_path)
 
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
@@ -90,10 +92,24 @@ def run_main():
     for p in processes:
         p.start()
 
-    for p in processes:
-        p.join()
+    try:
+        for p in processes:
+            p.join()
 
-    cv2.destroyAllWindows()
+        # Moving files to a new location
+        print("Moving files to post processing directory...")
+        new_path = session_path.replace(root_recording_path, root_post_recording_path)
+        os.rename(session_path, new_path)
+        # Allow VideoMaker to take over
+        SharedFunctions.create_text_file(os.path.normpath(r"{}/READY.TXT").format(new_path),
+                                         "Recoding finished")
+        print("Done")
+    except:
+        # Remove the whole session directory
+        print("Directory {} has been removed, due to errors.".format(session_path))
+        shutil.rmtree(session_path)
+    finally:
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

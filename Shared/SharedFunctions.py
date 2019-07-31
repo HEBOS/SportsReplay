@@ -1,6 +1,7 @@
 import os
 import time
-
+import shutil
+import ntpath
 
 class SharedFunctions(object):
     @staticmethod
@@ -13,42 +14,18 @@ class SharedFunctions(object):
                               timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
 
     @staticmethod
-    def get_previous_frame_file_name(path: str, camera_number: int, current_time: int, frame_number: int, fps: int):
-        if frame_number == 1:
-            seconds = int(current_time) - 1
-            frame = fps + 1
-        else:
-            seconds = int(current_time)
-            frame = frame_number - 1
-
-        return SharedFunctions.get_recording_file_path(path, camera_number, seconds, frame)
-
-    @staticmethod
-    def get_next_frame_file_name(path: str, camera_number: int, current_time: int, frame_number: int, fps: int):
-        if frame_number == fps + 1:
-            seconds = int(current_time) + 1
-            frame = 1
-        else:
-            seconds = int(current_time)
-            frame = frame_number + 1
-
-        return SharedFunctions.get_recording_file_path(path, camera_number, seconds, frame)
-
-    @staticmethod
-    def get_recording_file_path(path: str, camera_number: int, current_time: int, frame_number: int):
+    def get_recording_file_path(path: str, current_time: int, frame_number: int):
         return os.path.normpath(
-            r"{target_path}/camera_{camera_number}_frame_{currentTime}_{frameNumber}.jpg".format(
+            r"{target_path}/frame_{currentTime}_{frameNumber}.jpg".format(
                 target_path=path,
-                camera_number=camera_number,
                 currentTime=current_time,
                 frameNumber=str(frame_number).zfill(4)
             ))
 
     @staticmethod
-    def get_recording_file_name(camera_number: int, current_time: int, frame_number: int):
+    def get_recording_file_name(current_time: int, frame_number: int):
         return os.path.normpath(
-            r"camera_{camera_number}_frame_{currentTime}_{frameNumber}.jpg".format(
-                camera_number=camera_number,
+            r"frame_{currentTime}_{frameNumber}.jpg".format(
                 currentTime=current_time,
                 frameNumber=str(frame_number).zfill(4)
             ))
@@ -56,3 +33,33 @@ class SharedFunctions(object):
     @staticmethod
     def get_json_file_path(file_path: str):
         return file_path.replace(".jpg", ".json")
+
+    @staticmethod
+    def ensure_directory_exists(directory: str):
+        if not os.path.isdir(directory):
+            os.mkdir(directory)
+
+    @staticmethod
+    def create_text_file(file_path: str, content: str):
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            f.close()
+
+    @staticmethod
+    def create_flag_file(root_path: str):
+        ready_flag_file = os.path.normpath("{}/READY.TXT").format(root_path)
+        SharedFunctions.create_text_file(ready_flag_file, "")
+
+    @staticmethod
+    def remove_flag_file(root_path: str):
+        ready_flag_file = os.path.normpath("{}/READY.TXT").format(root_path)
+        os.remove(ready_flag_file)
+
+    @staticmethod
+    def get_file_name_only(file_path: str) -> str:
+        return ntpath.basename(file_path).replace(".jpg", "").replace(".json", "")
+
+    @staticmethod
+    def get_time_from_file(file_path: str) -> str:
+        return SharedFunctions.get_file_name_only(file_path).replace("frame_", "")
+

@@ -80,12 +80,10 @@ class VideoRecorder(object):
                         # Get the file path that will be used for the frame
                         file_path = SharedFunctions.get_recording_file_path(
                             self.camera.targetPath,
-                            self.camera.id,
                             int(snapshot_time),
                             frame_number
                         )
-                        filename = SharedFunctions.get_recording_file_name(self.camera.id,
-                                                                           int(snapshot_time),
+                        filename = SharedFunctions.get_recording_file_name(int(snapshot_time),
                                                                            frame_number)
                         ref, frame = self.capture.retrieve(flag=0)
                         cv2.waitKey(1)
