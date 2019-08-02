@@ -112,7 +112,7 @@ class VideoRecorder(object):
                 self.stop_ai()
                 if self.capture is not None:
                     self.capture.release()
-                concurrent.futures.wait(fs=write_tasks, return_when="ALL_COMPLETED")
+                concurrent.futures.wait(fs=write_tasks, timeout=10, return_when="ALL_COMPLETED")
                 cv2.destroyAllWindows()
 
     def stop_ai(self):

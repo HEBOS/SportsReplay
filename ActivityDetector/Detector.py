@@ -111,7 +111,7 @@ class Detector(object):
                 self.stop_detection = True
                 self.logger.error('Detector on playground {} is in error state.'.format(self.playground))
             finally:
-                concurrent.futures.wait(fs=ai_tasks, return_when="ALL_COMPLETED")
+                concurrent.futures.wait(fs=ai_tasks, timeout=10, return_when="ALL_COMPLETED")
 
     def start_detection(self):
         self.detection_thread = threading.Thread(target=self.detect, args=())
