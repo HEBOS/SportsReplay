@@ -1,4 +1,5 @@
 import json
+from typing import List
 from Shared.SharedFunctions import SharedFunctions
 
 
@@ -8,20 +9,22 @@ class CameraJson(object):
         self.json_file_path = json_file_path
 
     def get_ball_size(self) -> int:
+        ball_sizes: List[int] = [0]
         try:
             with open(self.json_file_path) as json_file:
                 data = json.load(json_file)
-                if len(data) != 1:
-                    return 0
-                else:
-                    ball = data[0]
+                if len(data) > 1:
+                    print("There are {} balls detected.".format(len(data)))
+
+                for ball in data:
                     x0 = ball["x0"]
                     x1 = ball["x1"]
                     y0 = ball["y0"]
                     y1 = ball["y1"]
                     a = x1 - x0
                     b = y1 - y0
-                    return 2 * (a + b)
+                    ball_sizes.append(2 * (a + b))
+            return max(ball_sizes)
         except:
             return 0
 

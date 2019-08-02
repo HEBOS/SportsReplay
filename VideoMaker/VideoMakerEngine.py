@@ -148,6 +148,8 @@ class VideoMakerEngine(object):
                                         last_activation_ball_size))
                     return active_camera, last_activation, current_ball_size
             else:
+                print("{} cameras have detected the ball.".format(len(json_files_to_check)))
+
                 # Preserve the current state of the detection
                 current_state = (active_camera, last_activation_ball_size)
 
@@ -163,14 +165,15 @@ class VideoMakerEngine(object):
                     if peeked_state[1] >= current_state[1]:
                         current_state = peeked_state
 
-                        # Create a log entry
-                        self.detection_log\
-                            .append("Time {} - Camera/Old Camera = [{}, {}]. Current ball size/Previous size = [{}, {}]."
-                                    .format(json_file_to_check.get_time(),
-                                            current_state[0],
-                                            active_camera,
-                                            peeked_state[1],
-                                            last_activation_ball_size))
+                    # Create a log entry
+                    self.detection_log \
+                        .append(
+                        "Time {} - Camera/Old Camera = [{}, {}]. Current ball size/Previous size = [{}, {}]."
+                            .format(json_file_to_check.get_time(),
+                                    current_state[0],
+                                    active_camera,
+                                    peeked_state[1],
+                                    last_activation_ball_size))
 
                 # Return new state (camera, time, ball size)
                 return current_state[0], json_files_to_check[0].get_time(), peeked_state[1]

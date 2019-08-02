@@ -4,6 +4,7 @@ import multiprocessing as mp
 import cv2
 import os
 import shutil
+from typing import List
 
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -14,10 +15,10 @@ from Shared.Camera import Camera
 
 def start_single_camera(camera_id: int, source: str, fps: int, width: int, height: int, client: int,
                         building: int, playground: int, target_path: str,
-                        start_of_capture: time, end_of_capture: time, ai_queue: mp.Queue):
+                        start_of_capture: time, end_of_capture: time, frames_to_skip: int, ai_queue: mp.Queue):
 
     camera = Camera(camera_id, source, fps, width, height,
-                    client, building, playground, target_path, start_of_capture, end_of_capture)
+                    client, building, playground, target_path, start_of_capture, end_of_capture, frames_to_skip)
 
     video = VideoRecorder(camera, ai_queue)
     video.start()
@@ -45,6 +46,9 @@ def run_main():
     root_post_recording_path = os.path.normpath(r"{}".format(config.post_recorder["post-recording-path"]))
     SharedFunctions.ensure_directory_exists(root_post_recording_path)
 
+    # This is for the testing purposes only, and required when video source are the files, not cameras
+    frames_to_skip = str(config.recorder["frames-to-skip"]).split(",")
+
     ai_queues = []
     processes = []
     i = 0
@@ -69,6 +73,10 @@ def run_main():
         if ".mp4" in v:
             source_path = os.path.normpath(r"{}".format(v))
 
+        # Ensure video_delays array is initialised
+        if len(frames_to_skip) != i:
+            frames_to_skip.append("0")
+
         # Ensure directory for particular camera exists
         camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
         SharedFunctions.ensure_directory_exists(camera_path)
@@ -85,6 +93,7 @@ def run_main():
                                           camera_path,
                                           start_of_capture,
                                           end_of_capture,
+                                          float(frames_to_skip[i-1]),
                                           ai_queue)))
 
     processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
