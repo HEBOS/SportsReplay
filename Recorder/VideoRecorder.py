@@ -59,46 +59,51 @@ class VideoRecorder(object):
                 self.capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
                 self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
                 self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
-
                 write_tasks = []
                 snapshot_time = time.time()
                 frame_number = 0
+
+                frames_to_skip = self.camera.frames_to_skip
 
                 while self.capturing:
                     # Wait for the next time trigger
                     while time.time() - snapshot_time <= 1 / self.camera.fps:
                         pass
 
-                    frame_number += 1
-                    if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
-                        frame_number = 1
+                    # Delay video capturing, if that's what's requested
+                    if frames_to_skip > 0:
+                        self.capture.grab()
+                        frames_to_skip -= 1
+                        pass
+                    else:
+                        frame_number += 1
+                        if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
+                            frame_number = 1
 
-                    snapshot_time = time.time()
+                        snapshot_time = time.time()
 
-                    grabbed = self.capture.grab()
-                    if grabbed:
-                        # Get the file path that will be used for the frame
-                        file_path = SharedFunctions.get_recording_file_path(
-                            self.camera.targetPath,
-                            self.camera.id,
-                            int(snapshot_time),
-                            frame_number
-                        )
-                        filename = SharedFunctions.get_recording_file_name(self.camera.id,
-                                                                           int(snapshot_time),
-                                                                           frame_number)
-                        ref, frame = self.capture.retrieve(flag=0)
-                        cv2.waitKey(1)
-                        captured_frame = CapturedFrame(self.camera,
-                                                       frame,
-                                                       file_path,
-                                                       filename,
-                                                       frame_number)
-                        if captured_frame.frame_number % self.camera.fps == 1:
-                            self.ai_queue.put_nowait(captured_frame)
+                        grabbed = self.capture.grab()
+                        if grabbed:
+                            # Get the file path that will be used for the frame
+                            file_path = SharedFunctions.get_recording_file_path(
+                                self.camera.targetPath,
+                                int(snapshot_time),
+                                frame_number
+                            )
+                            filename = SharedFunctions.get_recording_file_name(int(snapshot_time),
+                                                                               frame_number)
+                            ref, frame = self.capture.retrieve(flag=0)
+                            cv2.waitKey(1)
+                            captured_frame = CapturedFrame(self.camera,
+                                                           frame,
+                                                           file_path,
+                                                           filename,
+                                                           frame_number)
+                            if captured_frame.frame_number % self.camera.fps == 1:
+                                self.ai_queue.put_nowait(captured_frame)
 
-                        frame_read_task = executor.submit(captured_frame.save_file)
-                        write_tasks.append(frame_read_task)
+                            frame_read_task = executor.submit(captured_frame.save_file)
+                            write_tasks.append(frame_read_task)
             except cv2.error as e:
                 self.capturing = False
                 self.logger.error("Camera {}, on playground {} is not responding."
