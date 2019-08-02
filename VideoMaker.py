@@ -30,6 +30,12 @@ def run_main():
     streaming_path = os.path.normpath(r"{}".format(config.video_maker["streaming-path"]))
     SharedFunctions.ensure_directory_exists(streaming_path)
 
+    # Get ffmpeg utility path
+    ffmpeg_utility_path = os.path.normpath(r"{}/{}".format(os.getcwd(),
+                                                           config.video_maker["ffmpeg-utility-full-path"]))
+
+    # Get fps of output video
+    fps = config.recorder["fps"]
     video_addresses = str(config.recorder["video"]).split(",")
     number_of_cameras = len(video_addresses)
     stopped = False
@@ -56,10 +62,14 @@ def run_main():
                 full_directory_path = os.path.normpath(r"{}/{}").format(root_post_recording_path, directory)
                 new_path = full_directory_path.replace(root_post_recording_path, video_making_path)
                 os.rename(full_directory_path, new_path)
-                VideoMakerEngine.process(new_path,
-                                         number_of_cameras,
-                                         streaming_path,
-                                         directory)
+
+                # Start video maker engine
+                VideoMakerEngine().process(new_path,
+                                           number_of_cameras,
+                                           fps,
+                                           directory,
+                                           streaming_path,
+                                           ffmpeg_utility_path)
         else:
             print("No recordings to process. Pausing for 5 seconds.")
             time.sleep(5)
