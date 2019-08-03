@@ -6,6 +6,7 @@ import cv2
 import imutils
 import time
 import multiprocessing as mp
+from typing import List
 
 from ActivityDetector.AiModelConfig import AiModelConfig
 from Mask_RCNN.mrcnn import model as modellib
@@ -32,6 +33,8 @@ class SpeedTest(object):
 
         started_at = time.time()
         self.detection_thread = None
+
+        mp.set_start_method('spawn', force=True)
         self.start_detection()
         print("GPU utilisation equals {} fps.".format(100 / (time.time() - started_at)))
 
@@ -41,7 +44,7 @@ class SpeedTest(object):
         try:
             for b in range(0, 100):
                 sample_name = self.samples[b]
-                image = cv2.imread(sample_name, 1)
+                image: cv2.UMat = cv2.imread(sample_name, cv2.IMREAD_COLOR)
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = imutils.resize(image, width=512)
 
@@ -56,11 +59,11 @@ class SpeedTest(object):
         self.detection_thread.start()
         self.detection_thread.join()
 
-    def get_class_names(self):
+    def get_class_names(self) -> List[str]:
         labels = self.config["labels"]
         return open(labels).read().strip().split("\n")
 
-    def init_ai_model(self):
+    def init_ai_model(self) -> modellib.MaskRCNN:
         ai_model_config = AiModelConfig()
 
         model = modellib.MaskRCNN(mode="inference", config=ai_model_config, model_dir=os.getcwd())

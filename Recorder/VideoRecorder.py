@@ -95,7 +95,7 @@ class VideoRecorder(object):
                             ref, frame = self.capture.retrieve(flag=0)
                             cv2.waitKey(1)
                             captured_frame = CapturedFrame(self.camera,
-                                                           frame,
+                                                           cv2.UMat(frame),
                                                            file_path,
                                                            filename,
                                                            frame_number)
