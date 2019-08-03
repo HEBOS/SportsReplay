@@ -2,8 +2,10 @@ import os
 import queue
 import threading
 import concurrent.futures
+import multiprocessing as mp
 import cv2
 import imutils
+from typing import List
 
 from ActivityDetector.AiModelConfig import AiModelConfig
 from Mask_RCNN.mrcnn import model as modellib
@@ -28,10 +30,13 @@ class Detector(object):
         self.logger.info('Detector on playground {} has ras started detection.'.format(playground))
 
         self.detection_thread = None
+
+        mp.set_start_method('spawn', force=True)
         self.start_detection()
 
     def detect(self):
         model = self.init_ai_model()
+
         queue_index_to_is_first_frame_retrieved = {}
         queue_index_to_is_queue_empty = {}
         for index, ai_queue in enumerate(self.ai_queues):
@@ -111,7 +116,7 @@ class Detector(object):
                 self.stop_detection = True
                 self.logger.error('Detector on playground {} is in error state.'.format(self.playground))
             finally:
-                concurrent.futures.wait(fs=ai_tasks, return_when="ALL_COMPLETED")
+                concurrent.futures.wait(fs=ai_tasks, timeout=10, return_when="ALL_COMPLETED")
 
     def start_detection(self):
         self.detection_thread = threading.Thread(target=self.detect, args=())
@@ -121,11 +126,11 @@ class Detector(object):
     def stop(self):
         self.stop_detection = True
 
-    def get_class_names(self):
+    def get_class_names(self) -> List[str]:
         labels = self.config["labels"]
         return open(labels).read().strip().split("\n")
 
-    def init_ai_model(self):
+    def init_ai_model(self) -> modellib.MaskRCNN:
         ai_model_config = AiModelConfig()
 
         model = modellib.MaskRCNN(mode="inference", config=ai_model_config, model_dir=os.getcwd())

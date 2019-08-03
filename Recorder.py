@@ -98,6 +98,7 @@ def run_main():
 
     processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
 
+    started_at = time.time()
     for p in processes:
         p.start()
 
@@ -119,6 +120,7 @@ def run_main():
         shutil.rmtree(session_path)
     finally:
         cv2.destroyAllWindows()
+        print("Recording session finished after {} seconds.".format(time.time() - started_at))
 
 
 if __name__ == "__main__":
