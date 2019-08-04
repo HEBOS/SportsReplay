@@ -21,4 +21,4 @@ class AiModelConfig(Config):
 
     # Currently supported: ['resnet50','resnet101', 'mobilenetv1','mobilenetv2']
     BACKBONE = "mobilenetv1"
-    USE_MULTIPROCESSING = True
+    # USE_MULTIPROCESSING = True
