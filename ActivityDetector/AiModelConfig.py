@@ -1,5 +1,5 @@
 from Shared.Configuration import Configuration
-from Mask_RCNN.mmrcnn.config import Config
+from Mask_RCNN.mrcnn.config import Config
 
 
 class AiModelConfig(Config):

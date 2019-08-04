@@ -9,7 +9,7 @@ import multiprocessing as mp
 from typing import List
 
 from ActivityDetector.AiModelConfig import AiModelConfig
-from Mask_RCNN.mmrcnn import model as modellib
+from Mask_RCNN.mrcnn import model as modellib
 from Shared.Configuration import Configuration
 from Shared.LogHandler import LogHandler
 from Shared.SharedFunctions import SharedFunctions
