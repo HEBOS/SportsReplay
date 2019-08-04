@@ -2,9 +2,8 @@
 Mask R-CNN
 Multi-GPU Support for Keras.
 
-Copyright (c) 2017 Matterport, Inc.
-Licensed under the MIT License (see LICENSE for details)
-Written by Waleed Abdulla
+Based on the work of Waleed Abdulla (Matterport)
+Modified by github.com/GustavZ
 
 Ideas and a small code snippets from these sources:
 https://github.com/fchollet/keras/issues/2436
@@ -12,11 +11,24 @@ https://medium.com/@kuza55/transparent-multi-gpu-training-on-tensorflow-with-ker
 https://github.com/avolkov1/keras_experiments/blob/master/keras_exp/multigpu/
 https://github.com/fchollet/keras/blob/master/keras/utils/training_utils.py
 """
+# python 2 compability
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import tensorflow as tf
 import keras.backend as K
 import keras.layers as KL
 import keras.models as KM
+
+import sys
+import os
+# Root directory of the project
+ROOT_DIR = os.path.abspath("../")
+
+# Import Mask RCNN
+sys.path.append(ROOT_DIR)  # To find local version of the library
+from mmrcnn import utils
 
 
 class ParallelModel(KM.Model):
@@ -34,6 +46,7 @@ class ParallelModel(KM.Model):
         """
         self.inner_model = keras_model
         self.gpu_count = gpu_count
+        utils.set_cuda_visible_devices(self.gpu_count)
         merged_outputs = self.make_parallel()
         super(ParallelModel, self).__init__(inputs=self.inner_model.inputs,
                                             outputs=merged_outputs)
@@ -68,8 +81,8 @@ class ParallelModel(KM.Model):
 
         # Run the model call() on each GPU to place the ops there
         for i in range(self.gpu_count):
-            with tf.device('/gpu:%d' % i):
-                with tf.name_scope('tower_%d' % i):
+            with tf.device('/gpu:{}'.format(i)):
+                with tf.name_scope('tower_{}'.format(i)):
                     # Run a slice of inputs through this replica
                     zipped_inputs = zip(self.inner_model.input_names,
                                         self.inner_model.inputs)

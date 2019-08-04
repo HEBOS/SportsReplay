@@ -1,5 +1,5 @@
 from Shared.Configuration import Configuration
-from Mask_RCNN.mrcnn.config import Config
+from Mask_RCNN.mmrcnn.config import Config
 
 
 class AiModelConfig(Config):
@@ -18,3 +18,7 @@ class AiModelConfig(Config):
     # but the background class is *already* included in the class
     # names)
     NUM_CLASSES = len(CLASS_NAMES)
+
+    # Currently supported: ['resnet50','resnet101', 'mobilenetv1','mobilenetv2']
+    BACKBONE = "mobilenetv1"
+    USE_MULTIPROCESSING = True

@@ -2,11 +2,15 @@
 Mask R-CNN
 Base Configurations class.
 
-Copyright (c) 2017 Matterport, Inc.
-Licensed under the MIT License (see LICENSE for details)
-Written by Waleed Abdulla
+Based on the work of Waleed Abdulla (Matterport)
+Modified by github.com/GustavZ
 """
+# python 2 compability
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
+import math
 import numpy as np
 
 
@@ -24,14 +28,17 @@ class Config(object):
     # experiment is running.
     NAME = None  # Override in sub-classes
 
-    # NUMBER OF GPUs to use. When using only a CPU, this needs to be set to 1.
+    # NUMBER OF GPUs to use. For CPU training, use 1
     GPU_COUNT = 1
+
+    # Use Multiprocessing in MaskRCNN.train()
+    USE_MULTIPROCESSING = True
 
     # Number of images to train with on each GPU. A 12GB GPU can typically
     # handle 2 images of 1024x1024px.
     # Adjust based on your GPU memory and image sizes. Use the highest
     # number that your GPU can handle for best performance.
-    IMAGES_PER_GPU = 2
+    IMAGES_PER_GPU = 1
 
     # Number of training steps per epoch
     # This doesn't need to match the size of the training set. Tensorboard
@@ -47,27 +54,13 @@ class Config(object):
     # down the training.
     VALIDATION_STEPS = 50
 
-    # Backbone network architecture
-    # Supported values are: resnet50, resnet101.
-    # You can also provide a callable that should have the signature
-    # of model.resnet_graph. If you do so, you need to supply a callable
-    # to COMPUTE_BACKBONE_SHAPE as well
-    BACKBONE = "resnet101"
-
-    # Only useful if you supply a callable to BACKBONE. Should compute
-    # the shape of each layer of the FPN Pyramid.
-    # See model.compute_backbone_shapes
-    COMPUTE_BACKBONE_SHAPE = None
+    # Backbone Architecture,
+    # Currently supported: ['resnet50','resnet101', 'mobilenetv1','mobilenetv2']
+    BACKBONE = None # Override in sub-classes
 
     # The strides of each layer of the FPN Pyramid. These values
     # are based on a Resnet101 backbone.
-    BACKBONE_STRIDES = [4, 8, 16, 32, 64]
-
-    # Size of the fully-connected layers in the classification graph
-    FPN_CLASSIF_FC_LAYERS_SIZE = 1024
-
-    # Size of the top-down layers used to build the feature pyramid
-    TOP_DOWN_PYRAMID_SIZE = 256
+    BACKBONE_STRIDES = [4, 8, 16, 32, 64] #resnet
 
     # Number of classification classes (including background)
     NUM_CLASSES = 1  # Override in sub-classes
@@ -90,11 +83,8 @@ class Config(object):
 
     # How many anchors per image to use for RPN training
     RPN_TRAIN_ANCHORS_PER_IMAGE = 256
-    
-    # ROIs kept after tf.nn.top_k and before non-maximum suppression
-    PRE_NMS_LIMIT = 6000
 
-    # ROIs kept after non-maximum suppression (training and inference)
+    # ROIs kept after non-maximum supression (training and inference)
     POST_NMS_ROIS_TRAINING = 2000
     POST_NMS_ROIS_INFERENCE = 1000
 
@@ -104,7 +94,7 @@ class Config(object):
     MINI_MASK_SHAPE = (56, 56)  # (height, width) of the mini-mask
 
     # Input image resizing
-    # Generally, use the "square" resizing mode for training and predicting
+    # Generally, use the "square" resizing mode for training and inferencing
     # and it should work well in most cases. In this mode, images are scaled
     # up such that the small side is = IMAGE_MIN_DIM, but ensuring that the
     # scaling doesn't make the long side > IMAGE_MAX_DIM. Then the image is
@@ -129,12 +119,8 @@ class Config(object):
     # Minimum scaling ratio. Checked after MIN_IMAGE_DIM and can force further
     # up scaling. For example, if set to 2 then images are scaled up to double
     # the width and height, or more, even if MIN_IMAGE_DIM doesn't require it.
-    # However, in 'square' mode, it can be overruled by IMAGE_MAX_DIM.
+    # Howver, in 'square' mode, it can be overruled by IMAGE_MAX_DIM.
     IMAGE_MIN_SCALE = 0
-    # Number of color channels per image. RGB = 3, grayscale = 1, RGB-D = 4
-    # Changing this requires other changes in the code. See the WIKI for more
-    # details: https://github.com/matterport/Mask_RCNN/wiki
-    IMAGE_CHANNEL_COUNT = 3
 
     # Image mean (RGB)
     MEAN_PIXEL = np.array([123.7, 116.8, 103.9])
@@ -176,7 +162,7 @@ class Config(object):
 
     # Learning rate and momentum
     # The Mask RCNN paper uses lr=0.02, but on TensorFlow it causes
-    # weights to explode. Likely due to differences in optimizer
+    # weights to explode. Likely due to differences in optimzer
     # implementation.
     LEARNING_RATE = 0.001
     LEARNING_MOMENTUM = 0.9
@@ -204,7 +190,7 @@ class Config(object):
     # Train or freeze batch normalization layers
     #     None: Train BN layers. This is the normal mode
     #     False: Freeze BN layers. Good when using a small batch size
-    #     True: (don't use). Set layer in training mode even when predicting
+    #     True: (don't use). Set layer in training mode even when inferencing
     TRAIN_BN = False  # Defaulting to False since batch size is often small
 
     # Gradient norm clipping
@@ -217,15 +203,16 @@ class Config(object):
 
         # Input image size
         if self.IMAGE_RESIZE_MODE == "crop":
-            self.IMAGE_SHAPE = np.array([self.IMAGE_MIN_DIM, self.IMAGE_MIN_DIM,
-                self.IMAGE_CHANNEL_COUNT])
+            self.IMAGE_SHAPE = np.array([self.IMAGE_MIN_DIM, self.IMAGE_MIN_DIM, 3])
         else:
-            self.IMAGE_SHAPE = np.array([self.IMAGE_MAX_DIM, self.IMAGE_MAX_DIM,
-                self.IMAGE_CHANNEL_COUNT])
+            self.IMAGE_SHAPE = np.array([self.IMAGE_MAX_DIM, self.IMAGE_MAX_DIM, 3])
 
         # Image meta data length
         # See compose_image_meta() for details
         self.IMAGE_META_SIZE = 1 + 3 + 3 + 4 + 1 + self.NUM_CLASSES
+
+        # Add Resolution to config name
+        self.NAME = "{}_".format(self.IMAGE_MAX_DIM)+self.NAME
 
     def display(self):
         """Display Configuration values."""

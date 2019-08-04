@@ -2,13 +2,17 @@
 Mask R-CNN
 Display and Visualization Functions.
 
-Copyright (c) 2017 Matterport, Inc.
-Licensed under the MIT License (see LICENSE for details)
-Written by Waleed Abdulla
+Based on the work of Waleed Abdulla (Matterport)
+Modified by github.com/GustavZ
 """
+# python 2 compability
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import os
 import sys
+import logging
 import random
 import itertools
 import colorsys
@@ -25,7 +29,7 @@ ROOT_DIR = os.path.abspath("../")
 
 # Import Mask RCNN
 sys.path.append(ROOT_DIR)  # To find local version of the library
-from mrcnn import utils
+from mmrcnn import utils
 
 
 ############################################################
@@ -40,7 +44,7 @@ def display_images(images, titles=None, cols=4, cmap=None, norm=None,
     cols: number of images per row
     cmap: Optional. Color map to use. For example, "Blues".
     norm: Optional. A Normalize instance to map values to colors.
-    interpolation: Optional. Image interpolation to use for display.
+    interpolation: Optional. Image interporlation to use for display.
     """
     titles = titles if titles is not None else [""] * len(images)
     rows = len(images) // cols + 1
@@ -72,11 +76,14 @@ def random_colors(N, bright=True):
 def apply_mask(image, mask, color, alpha=0.5):
     """Apply the given mask to the image.
     """
+    #for c in range(3):
+    #    image[:, :, c] = np.where(mask == 1,
+    #                              image[:, :, c] *
+    #                              (1 - alpha) + alpha * color[c] * 255,
+    #                              image[:, :, c])
+    mask_px = np.where(mask)
     for c in range(3):
-        image[:, :, c] = np.where(mask == 1,
-                                  image[:, :, c] *
-                                  (1 - alpha) + alpha * color[c] * 255,
-                                  image[:, :, c])
+        image[mask_px[0], mask_px[1], c] = (1 - alpha)*image[mask_px[0], mask_px[1], c] + alpha * color[c] * 255
     return image
 
 
@@ -140,6 +147,7 @@ def display_instances(image, boxes, masks, class_ids, class_names,
             class_id = class_ids[i]
             score = scores[i] if scores is not None else None
             label = class_names[class_id]
+            x = random.randint(x1, (x1 + x2) // 2)
             caption = "{} {:.3f}".format(label, score) if score else label
         else:
             caption = captions[i]
@@ -323,7 +331,7 @@ def plot_overlaps(gt_class_ids, pred_class_ids, pred_scores,
     gt_class_ids: [N] int. Ground truth class IDs
     pred_class_id: [N] int. Predicted class IDs
     pred_scores: [N] float. The probability scores of predicted classes
-    overlaps: [pred_boxes, gt_boxes] IoU overlaps of predictions and GT boxes.
+    overlaps: [pred_boxes, gt_boxes] IoU overlaps of predictins and GT boxes.
     class_names: list of all class names in the dataset
     threshold: Float. The prediction probability required to predict a class
     """
@@ -359,7 +367,7 @@ def plot_overlaps(gt_class_ids, pred_class_ids, pred_scores,
 def draw_boxes(image, boxes=None, refined_boxes=None,
                masks=None, captions=None, visibilities=None,
                title="", ax=None):
-    """Draw bounding boxes and segmentation masks with different
+    """Draw bounding boxes and segmentation masks with differnt
     customizations.
 
     boxes: [N, (y1, x1, y2, x2, class_id)] in image coordinates.
@@ -368,7 +376,7 @@ def draw_boxes(image, boxes=None, refined_boxes=None,
     masks: [N, height, width]
     captions: List of N titles to display on each box
     visibilities: (optional) List of values of 0, 1, or 2. Determine how
-        prominent each bounding box should be.
+        prominant each bounding box should be.
     title: An optional title to show over the image
     ax: (optional) Matplotlib axis to draw on.
     """
@@ -435,6 +443,7 @@ def draw_boxes(image, boxes=None, refined_boxes=None,
             # If there are refined boxes, display captions on them
             if refined_boxes is not None:
                 y1, x1, y2, x2 = ry1, rx1, ry2, rx2
+            x = random.randint(x1, (x1 + x2) // 2)
             ax.text(x1, y1, caption, size=11, verticalalignment='top',
                     color='w', backgroundcolor="none",
                     bbox={'facecolor': color, 'alpha': 0.5,
