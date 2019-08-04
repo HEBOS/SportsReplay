@@ -41,6 +41,8 @@ class SpeedTest(object):
     def detect(self):
         model = self.init_ai_model()
 
+        balls_identified = 0
+
         try:
             for b in range(0, 100):
                 sample_name = self.samples[b]
@@ -50,9 +52,17 @@ class SpeedTest(object):
 
                 result = model.detect([image], verbose=1)[0]
 
+                for i in range(0, len(result["scores"])):
+                    # extract the bounding box information, class ID and predicted probability
+                    class_id = result["class_ids"][i]
+                    if class_id == self.sports_ball_id:
+                        balls_identified += 1
+
         except Exception as ex:
             print(ex)
             self.logger.error("Detector is in error state.")
+
+        print("number of balls identified: " + str(balls_identified))
 
     def start_detection(self):
         self.detection_thread = threading.Thread(target=self.detect, args=())
