@@ -2,12 +2,14 @@ import os
 import queue
 import threading
 import concurrent.futures
+import tensorflow as tf
 import cv2
 import imutils
 import time
 import multiprocessing as mp
 from typing import List
 
+from keras.models import load_model
 from ActivityDetector.AiModelConfig import AiModelConfig
 from Mask_RCNN.mrcnn import model as modellib
 from Shared.Configuration import Configuration
@@ -40,7 +42,14 @@ class SpeedTest(object):
 
     def detect(self):
         model = self.init_ai_model()
+        model2 = load_model(os.path.normpath(r'/SportsReplay/ActivityDetector/mobile_mask_rcnn_coco.h5'),
+                            compile=True)
+        print(model2.outputs)
+        # [<tf.Tensor 'dense_2/Softmax:0' shape=(?, 10) dtype=float32>]
+        print(model2.inputs)
+        pass
 
+        # writer = tf.summary.FileWriter(os.getcwd(), session.graph)
         try:
             for b in range(0, 100):
                 sample_name = self.samples[b]
@@ -49,10 +58,10 @@ class SpeedTest(object):
                 image = imutils.resize(image, width=512)
 
                 result = model.detect([image], verbose=1)[0]
-
         except Exception as ex:
             print(ex)
             self.logger.error("Detector is in error state.")
+        writer.close()
 
     def start_detection(self):
         self.detection_thread = threading.Thread(target=self.detect, args=())

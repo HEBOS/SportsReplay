@@ -81,6 +81,8 @@ def run_main():
         camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
         SharedFunctions.ensure_directory_exists(camera_path)
 
+        # OVDJE DODATI STREAM-ANJE SA MP4 FILE-A PUTEM FFMPEG-A
+
         processes.append(mp.Process(target=start_single_camera,
                                     args=(i,
                                           source_path,
