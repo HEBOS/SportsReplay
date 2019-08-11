@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import tensorflow as tf
 
 with tf.device('/gpu:0'):

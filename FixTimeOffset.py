@@ -1,4 +1,4 @@
-#!/usr/bin/env pypy
+#!/usr/bin/env python3
 import os
 
 from Shared.SharedFunctions import SharedFunctions
