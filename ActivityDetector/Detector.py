@@ -1,30 +1,32 @@
 #!/usr/bin/env python3
-import os
 import queue
 import threading
 import concurrent.futures
 import multiprocessing as mp
-import cv2
-import imutils
-from typing import List
+import jetson.inference
+import jetson.utils
 
-from ActivityDetector.AiModelConfig import AiModelConfig
-from Mask_RCNN.mrcnn import model as modellib
 from Shared.Configuration import Configuration
 from Shared.LogHandler import LogHandler
+from Shared.Camera import Camera
 
 
 class Detector(object):
-    def __init__(self, playground: int, ai_queues: list):
+    def __init__(self, playground: int, ai_queues: list, width: int, height: int, class_id: int,
+                 network: str, threshold: float):
         self.playground = playground
         self.ai_queues = ai_queues
+        self.class_id = class_id
+        self.network = network
+        self.threshold = threshold
+        self.width = width
+        self.height = height
+
         self.output_queue = queue.Queue(maxsize=10000)
         self.stop_detection = False
         self.output_threads = []
 
         self.config = Configuration().activity_detector
-        self.class_names = self.get_class_names()
-        self.sports_ball_id = self.class_names.index("sports ball")
 
         # Logger
         self.logger = LogHandler("detector")
@@ -36,8 +38,6 @@ class Detector(object):
         self.start_detection()
 
     def detect(self):
-        model = self.init_ai_model()
-
         queue_index_to_is_first_frame_retrieved = {}
         queue_index_to_is_queue_empty = {}
         for index, ai_queue in enumerate(self.ai_queues):
@@ -48,6 +48,11 @@ class Detector(object):
         first_frames_retrieved = 0
         queues_currently_empty = number_of_queues
         ai_tasks = []
+
+        # load the object detection network
+        net = jetson.inference.detectNet(self.config.activity_detector["network"],
+                                         [],
+                                         float(self.config.activity_detector["threshold"]))
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
             try:
@@ -68,9 +73,6 @@ class Detector(object):
                                 queues_currently_empty -= 1
 
                             image = captured_frame.frame
-                            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-                            image = imutils.resize(image, width=512)
-
                         except Exception as ex:
                             print("Unsuccessful in retrieving image from ai_queue: " + str(ex))
                             if ai_queue.empty():
@@ -84,25 +86,23 @@ class Detector(object):
                                     break
                             continue
 
-                        result = model.detect([image], verbose=1)[0]
-
+                        '''
+                            These properties are available
+                            Left, Right, Top, Bottom
+                            Width, Height
+                            Confidence, Instance
+                        '''
+                        detections = net.Detect(image, self.width, self.height)
                         output_json_array = []
-
-                        for i in range(0, len(result["scores"])):
-                            # extract the bounding box information, class ID and predicted probability
-                            class_id = result["class_ids"][i]
-                            if class_id == self.sports_ball_id:
-                                (startY, startX, endY, endX) = result["rois"][i]
-                                score = result["scores"][i]
-
+                        for detection in detections:
+                            if detection.ClassID == self.class_id:
                                 output_json = {
-                                    "x0": int(startX),
-                                    "y0": int(startY),
-                                    "x1": int(endX),
-                                    "y1": int(endY),
-                                    "score": int(score)
+                                    "x0": int(detection.Left),
+                                    "y0": int(detection.Top),
+                                    "x1": int(detection.Right),
+                                    "y1": int(detection.Bottom),
+                                    "score": int(detection.Confidence)
                                 }
-
                                 output_json_array.append(output_json)
 
                         balls_identified = len(output_json_array)
@@ -126,15 +126,3 @@ class Detector(object):
 
     def stop(self):
         self.stop_detection = True
-
-    def get_class_names(self) -> List[str]:
-        labels = self.config["labels"]
-        return open(labels).read().strip().split("\n")
-
-    def init_ai_model(self) -> modellib.MaskRCNN:
-        ai_model_config = AiModelConfig()
-
-        model = modellib.MaskRCNN(mode="inference", config=ai_model_config, model_dir=os.getcwd())
-        model.load_weights(self.config["weights"], by_name=True)
-
-        return model

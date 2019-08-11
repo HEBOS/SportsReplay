@@ -6,7 +6,6 @@ import os
 import signal
 import shutil
 import subprocess
-from typing import List
 
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -55,8 +54,9 @@ def create_fake_camera_loopback(cameras):
         process.wait()
 
 
-def start_activity_detection(playground: int, ai_queues: list):
-    Detector(playground, ai_queues)
+def start_activity_detection(playground: int, ai_queues: list, width: int, height: int, class_id: int,
+                             network: str, threshold: float):
+    Detector(playground, ai_queues, width, height, class_id, network, threshold)
     pass
 
 
@@ -92,6 +92,12 @@ def run_main():
     building = int(config.common["building"])
     playground = int(config.common["playground"])
     fps = int(config.recorder["fps"])
+    width = int(config.recorder["width"])
+    height = int(config.recorder["height"])
+    class_id = SharedFunctions.get_class_id(os.path.join(os.getcwd(), config.activity_detector["labels"]),
+                                            config.activity_detector["sports-ball"])
+    network = config.activity_detector["network"]
+    threshold = config.activity_detector["threshold"]
 
     # Ensure session directory exists
     session_path = SharedFunctions.get_recording_path(root_recording_path, building, playground, start_of_capture)
@@ -134,7 +140,8 @@ def run_main():
                                           end_of_capture,
                                           ai_queue)))
 
-    processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
+    processes.append(mp.Process(target=start_activity_detection,
+                                args=(playground, ai_queues, width, height, class_id, network, threshold)))
 
     started_at = time.time()
     for p in processes:

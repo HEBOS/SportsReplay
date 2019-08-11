@@ -71,3 +71,6 @@ class SharedFunctions(object):
     def get_time_from_file(file_path: str) -> str:
         return SharedFunctions.get_file_name_only(file_path).replace("frame_", "").replace("_", ".")
 
+    @staticmethod
+    def get_class_id(class_names_file_path: str, target_class_name) -> int:
+        return open(class_names_file_path).read().strip().split("\n").index(target_class_name)
