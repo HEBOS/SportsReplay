@@ -1,9 +1,11 @@
-#!/usr/bin/env pypy
+#!/usr/bin/env python3
 import time
 import multiprocessing as mp
 import cv2
 import os
+import signal
 import shutil
+import subprocess
 from typing import List
 
 from Shared.Configuration import Configuration
@@ -15,13 +17,42 @@ from Shared.Camera import Camera
 
 def start_single_camera(camera_id: int, source: str, fps: int, width: int, height: int, client: int,
                         building: int, playground: int, target_path: str,
-                        start_of_capture: time, end_of_capture: time, frames_to_skip: int, ai_queue: mp.Queue):
+                        start_of_capture: time, end_of_capture: time, ai_queue: mp.Queue):
 
     camera = Camera(camera_id, source, fps, width, height,
-                    client, building, playground, target_path, start_of_capture, end_of_capture, frames_to_skip)
+                    client, building, playground, target_path, start_of_capture, end_of_capture)
 
     video = VideoRecorder(camera, ai_queue)
     video.start()
+
+
+def play_video(ffmpeg_utility_path, camera_id: int, source: str, fps: int, playtime: int, frames_to_skip: int):
+    cmd = [ffmpeg_utility_path,
+           "-r", str(fps),
+           "-re",
+           "-i", source,
+           "-map", "0:v",
+           "input_format", "mjpeg",
+           "-ss", round(float(frames_to_skip) / fps, 2),
+           "-t", playtime,
+           "-pix_fmt", "yuyv422",
+           "-f", "v4l2",
+           "/dev/video{video_id}".format(video_id=camera_id - 1),
+           "|", "tee", "video{video_id}.log".format(video_id=camera_id - 1),
+           ]
+
+    p = subprocess.Popen(" ".join(cmd), stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+    return p
+
+
+def create_fake_camera_loopback(cameras):
+    if not os.path.ismount(os.path.normpath("/dev/video{}".format(cameras - 1))):
+        print("Mounting fake cameras...")
+        process = subprocess.Popen("sudo modprobe -r v4l2loopback", shell=True, stdout=subprocess.PIPE)
+        process.wait()
+        process = subprocess.Popen("sudo modprobe v4l2loopback devices={cameras}".format(cameras=cameras),
+                                   shell=True, stdout=subprocess.PIPE)
+        process.wait()
 
 
 def start_activity_detection(playground: int, ai_queues: list):
@@ -33,9 +64,11 @@ def run_main():
     config = Configuration()
 
     # Schedule the start and end of capture 3 seconds ahead, so that all camera start at the same time
+    playtime = int(config.common["playtime"])
     start_of_capture = time.time() + 10
-    end_of_capture = start_of_capture + int(config.common["playtime"])
-
+    end_of_capture = start_of_capture + playtime
+    ffmpeg_utility_path = os.path.normpath(r"{}/{}".format(os.getcwd(),
+                                                           config.video_maker["ffmpeg-utility-full-path"]))
     video_addresses = str(config.recorder["video"]).split(",")
 
     # Ensure that root recording directory exists
@@ -51,6 +84,7 @@ def run_main():
 
     ai_queues = []
     processes = []
+    players = []
     i = 0
 
     # Get main configuration settings
@@ -63,19 +97,24 @@ def run_main():
     session_path = SharedFunctions.get_recording_path(root_recording_path, building, playground, start_of_capture)
     SharedFunctions.ensure_directory_exists(session_path)
 
+    # Mount fake cameras, if they don't exist
+    if ".mp4" in video_addresses:
+        create_fake_camera_loopback(len(video_addresses))
+
     for v in video_addresses:
         i += 1
         ai_queue = mp.Queue()
         ai_queues.append(ai_queue)
 
-        # If video source is not camera, but mp4 file, fix the path
-        source_path = v
-        if ".mp4" in v:
-            source_path = os.path.normpath(r"{}".format(v))
-
         # Ensure video_delays array is initialised
         if len(frames_to_skip) != i:
             frames_to_skip.append("0")
+            
+        # If video source is not camera, but mp4 file, fix the path
+        source_path = v
+        if ".mp4" in v:
+            source_path = os.path.normpath(r"/dev/video{}".format(i - 1))
+            players.append(play_video(ffmpeg_utility_path, i, source_path, fps, playtime, int(frames_to_skip[i - 1])))
 
         # Ensure directory for particular camera exists
         camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
@@ -93,7 +132,6 @@ def run_main():
                                           camera_path,
                                           start_of_capture,
                                           end_of_capture,
-                                          float(frames_to_skip[i-1]),
                                           ai_queue)))
 
     processes.append(mp.Process(target=start_activity_detection, args=(playground, ai_queues)))
@@ -105,6 +143,9 @@ def run_main():
     try:
         for p in processes:
             p.join()
+
+        for p in players:
+            os.killpg(os.getpgid(p.pid), signal.SIGTERM)
 
         # Moving files to a new location
         print("Moving files to post processing directory...")
