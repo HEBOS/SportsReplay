@@ -31,9 +31,11 @@ class SpeedTest(object):
         for jpg_file in self.samples:
             img, width, height = jetson.utils.loadImageRGBA(jpg_file, zeroCopy=1)
             detections = net.Detect(img, width, height)
-            for detection in detections:
-                if detection.ClassID == self.sports_ball_id:
-                    balls_identified += 1
+            if len(detections) > 0:
+                for detection in detections:
+                    if detection.ClassID == self.sports_ball_id:
+                        balls_identified += 1
+                jetson.utils.cudaDeviceSynchronize()
 
         print("GPU utilisation equals {} fps.".format(int(len(self.samples) / (time.time() - started_at))))
         print("Detected objects: {}".format(balls_identified))

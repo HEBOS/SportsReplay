@@ -16,24 +16,23 @@ def run_main():
     playground = int(config.common["playground"])
 
     # Ensure that root recording directory exists.
-    root_recording_path = os.path.normpath(r"{}".format(config.recorder["recording-path"]))
+    root_recording_path = os.path.join(config.common["dump-path"], config.recorder["recording-path"])
     SharedFunctions.ensure_directory_exists(root_recording_path)
 
     # Ensure that root post recording directory exists.
-    root_post_recording_path = os.path.normpath(r"{}".format(config.post_recorder["post-recording-path"]))
+    root_post_recording_path = os.path.join(config.common["dump-path"], config.post_recorder["post-recording-path"])
     SharedFunctions.ensure_directory_exists(root_post_recording_path)
 
     # Ensure that root video making directory exists
-    video_making_path = os.path.normpath(r"{}".format(config.video_maker["video-making-path"]))
+    video_making_path = os.path.join(config.common["dump-path"], config.video_maker["video-making-path"])
     SharedFunctions.ensure_directory_exists(video_making_path)
 
     # Ensure that streaming directory exists
-    streaming_path = os.path.normpath(r"{}".format(config.video_maker["streaming-path"]))
+    streaming_path = os.path.join(config.common["dump-path"], config.video_maker["streaming-path"])
     SharedFunctions.ensure_directory_exists(streaming_path)
 
     # Get ffmpeg utility path
-    ffmpeg_utility_path = os.path.normpath(r"{}/{}".format(os.getcwd(),
-                                                           config.video_maker["ffmpeg-utility-full-path"]))
+    ffmpeg_utility_path = os.path.normpath(config.video_maker["ffmpeg-utility-full-path"])
 
     # Get fps of output video
     fps = config.recorder["fps"]

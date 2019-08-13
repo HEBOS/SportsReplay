@@ -96,8 +96,8 @@ class Detector(object):
                                 detecting = False
             except:
                 self.logger.error('Detector on playground {} is in error state.'.format(self.playground))
+            finally:
+                concurrent.futures.wait(fs=ai_tasks, timeout=3, return_when="ALL_COMPLETED")
 
-        concurrent.futures.wait(fs=ai_tasks, timeout=3, return_when="ALL_COMPLETED")
-        net.Detection = None
-        jetson.utils.cudaDeviceSynchronize()
+
 

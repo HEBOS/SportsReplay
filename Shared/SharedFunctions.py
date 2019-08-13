@@ -2,6 +2,7 @@
 import os
 import time
 import ntpath
+import cv2
 from typing import List
 
 
@@ -74,3 +75,13 @@ class SharedFunctions(object):
     @staticmethod
     def get_class_id(class_names_file_path: str, target_class_name) -> int:
         return open(class_names_file_path).read().strip().split("\n").index(target_class_name)
+
+    # The reference for these methods: https://gist.github.com/atinfinity/b2f89e33e398559c5fcefda3ad3c0269
+    @staticmethod
+    def from_cuda(image: cv2.cuda_GpuMat) -> cv2.Mat:
+        return image.download()
+
+    @staticmethod
+    def to_cuda(image: cv2.Mat) -> cv2.cuda_GpuMat:
+        d_img = cv2.cuda_GpuMat()
+        d_img.upload(image)

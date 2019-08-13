@@ -12,11 +12,11 @@ from ActivityDetector.Detector import Detector
 from Shared.Camera import Camera
 
 
-def start_single_camera(camera_id: int, source: str, fps: int, width: int, height: int, client: int,
+def start_single_camera(camera_id: int, source: str, fps: int, cdfps: float, width: int, height: int, client: int,
                         building: int, playground: int, target_path: str,
                         start_of_capture: time, end_of_capture: time, frames_to_skip: int, ai_queue: mp.Queue):
 
-    camera = Camera(camera_id, source, fps, width, height,
+    camera = Camera(camera_id, source, fps, cdfps, width, height,
                     client, building, playground, target_path, start_of_capture, end_of_capture,
                     frames_to_skip)
 
@@ -62,6 +62,7 @@ def run_main():
     building = int(config.common["building"])
     playground = int(config.common["playground"])
     fps = int(config.recorder["fps"])
+    cdfps = float(config.activity_detector["cdfps"])
     width = int(config.recorder["width"])
     height = int(config.recorder["height"])
     class_id = SharedFunctions.get_class_id(os.path.join(os.getcwd(), config.activity_detector["labels"]),
@@ -96,6 +97,7 @@ def run_main():
                                     args=(i,
                                           source_path,
                                           fps,
+                                          cdfps,
                                           width,
                                           height,
                                           client,

@@ -1,6 +1,7 @@
 import threading
 import time
 import logging
+import math
 import cv2
 import concurrent.futures
 import multiprocessing as mp
@@ -23,6 +24,7 @@ class VideoRecorder(object):
         self.capture = None
         self.capturing = True
         self.captureThread = None
+        self.detection_frequency = math.floor(camera.fps / camera.cdfps)
 
     def start(self):
         try:
@@ -99,7 +101,7 @@ class VideoRecorder(object):
                                                            frame_number,
                                                            snapshot_time)
 
-                            if captured_frame.frame_number % self.camera.fps == 1:
+                            if captured_frame.frame_number % self.detection_frequency  == 1:
                                 self.ai_queue.put(captured_frame, block=True, timeout=2)
 
                             frame_read_task = executor.submit(captured_frame.save_file)
