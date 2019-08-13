@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
 import threading
 import time
 import logging
 import cv2
-import jetson.inference
-import jetson.utils
 import concurrent.futures
 import multiprocessing as mp
 from Shared.LogHandler import LogHandler
@@ -17,9 +14,6 @@ class VideoRecorder(object):
     def __init__(self, camera: Camera, ai_queue: mp.Queue):
         self.camera = camera
         self.ai_queue = ai_queue
-
-        # Redirect OpenCV errors
-        cv2.redirectError = self.cv2error
 
         # Logger
         self.logger = LogHandler("recording")
@@ -56,10 +50,17 @@ class VideoRecorder(object):
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             try:
-                self.capture = jetson.utils.gstCamera(self.camera.width, self.camera.height, self.camera.source)
+                self.capture = cv2.VideoCapture(self.camera.source)
+                self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera.width)
+                self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera.height)
+                self.capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
+                self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+                self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
                 write_tasks = []
                 snapshot_time = time.time()
                 frame_number = 0
+
+                frames_to_skip = self.camera.frames_to_skip
 
                 while self.capturing:
                     # Wait for the next time trigger
@@ -67,59 +68,56 @@ class VideoRecorder(object):
                         pass
 
                     # Delay video capturing, if that's what's requested
-                    frame_number += 1
-                    if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
-                        frame_number = 1
+                    if frames_to_skip > 0:
+                        self.capture.grab()
+                        frames_to_skip -= 1
+                        pass
+                    else:
+                        frame_number += 1
+                        if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
+                            frame_number = 1
 
-                    snapshot_time = time.time()
+                        snapshot_time = time.time()
 
-                    frame, width, height = self.capture.CaptureRGBA()
-                    if frame:
-                        # Get the file path that will be used for the frame
-                        file_path = SharedFunctions.get_recording_file_path(
-                            self.camera.targetPath,
-                            int(snapshot_time),
-                            frame_number
-                        )
-                        filename = SharedFunctions.get_recording_file_name(int(snapshot_time),
-                                                                           frame_number)
-                        captured_frame = CapturedFrame(self.camera,
-                                                       frame,
-                                                       file_path,
-                                                       filename,
-                                                       frame_number)
-                        if captured_frame.frame_number % self.camera.fps == 1:
-                            self.ai_queue.put_nowait(captured_frame)
+                        grabbed = self.capture.grab()
+                        if grabbed:
+                            # Get the file path that will be used for the frame
+                            file_path = SharedFunctions.get_recording_file_path(
+                                self.camera.targetPath,
+                                int(snapshot_time),
+                                frame_number
+                            )
+                            filename = SharedFunctions.get_recording_file_name(int(snapshot_time),
+                                                                               frame_number)
+                            ref, frame = self.capture.retrieve(flag=0)
+                            cv2.waitKey(1)
 
-                        frame_read_task = executor.submit(captured_frame.save_file)
-                        write_tasks.append(frame_read_task)
+                            captured_frame = CapturedFrame(self.camera,
+                                                           frame,
+                                                           file_path,
+                                                           filename,
+                                                           frame_number,
+                                                           snapshot_time)
 
-            except cv2.Error.error as e:
+                            if captured_frame.frame_number % self.camera.fps == 1:
+                                self.ai_queue.put(captured_frame, block=True, timeout=2)
+
+                            frame_read_task = executor.submit(captured_frame.save_file)
+                            write_tasks.append(frame_read_task)
+
+            except cv2.error as e:
                 self.capturing = False
                 self.logger.error("Camera {}, on playground {} is not responding."
                                   .format(self.camera.id, self.camera.playground))
             finally:
                 self.stop_ai()
                 if self.capture is not None:
-                    self.capture.Close()
+                    self.capture.release()
                 concurrent.futures.wait(fs=write_tasks, timeout=10, return_when="ALL_COMPLETED")
-                cv2.destroyAllWindows()
 
     def stop_ai(self):
         # putting poison pill in ai_queue
-        self.ai_queue.put_nowait(None)
-
-    # Finishes the video recording therefore the thread too
-    def stop(self):
-        self.stop_ai()
-
-        if self.capturing:
-            self.capturing = False
-        else:
-            pass
-
-        self.logger.warning('Recording with camera {}, on playground {} has been forcibly interrupted.'
-                            .format(self.camera.id, self.camera.playground))
+        self.ai_queue.put(None)
 
     def cv2error(self):
         self.logger.error("Camera {}, on playground {} is not responding."

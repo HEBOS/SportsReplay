@@ -3,20 +3,16 @@ import jetson.inference
 import jetson.utils
 import os
 import time
-import multiprocessing as mp
-import threading
+import cv2
 from typing import List
 
 from Shared.Configuration import Configuration
-from Shared.LogHandler import LogHandler
-from Shared.SharedFunctions import SharedFunctions
 
 
 class SpeedTest(object):
     def __init__(self):
         balls_identified = 0
-
-        self.sample_directory = os.path.normpath(r"{}/ActivityDetector/SampleImages2".format(os.getcwd()))
+        self.sample_directory = os.path.normpath(r"{}/ActivityDetector/SampleImages".format(os.getcwd()))
         self.samples = [os.path.normpath(r"{}/{}".format(self.sample_directory, fi))
                         for fi in os.listdir(self.sample_directory)
                         if os.path.isfile(os.path.join(self.sample_directory, fi)) and fi.lower().endswith(".jpg")]
@@ -33,9 +29,8 @@ class SpeedTest(object):
         started_at = time.time()
 
         for jpg_file in self.samples:
-            img, width, height = jetson.utils.loadImageRGBA(jpg_file)
+            img, width, height = jetson.utils.loadImageRGBA(jpg_file, zeroCopy=1)
             detections = net.Detect(img, width, height)
-
             for detection in detections:
                 if detection.ClassID == self.sports_ball_id:
                     balls_identified += 1
@@ -50,4 +45,3 @@ class SpeedTest(object):
 
 if __name__ == "__main__":
     st = SpeedTest()
-
