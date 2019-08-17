@@ -40,9 +40,9 @@ class VideoRecorder(object):
                               .format(self.camera.id, self.camera.playground))
 
         finally:
-            print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
             self.capturing = False
             self.captureThread.join()
+            print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
 
     def record(self):
         # Sync the start with other cameras, so they start at the same time
@@ -100,13 +100,14 @@ class VideoRecorder(object):
                                                            filename,
                                                            frame_number,
                                                            snapshot_time,
-                                                           captured_frame.frame_number % self.detection_frequency == 1)
+                                                           frame_number % self.detection_frequency == 1)
 
                             self.ai_queue.put(captured_frame, block=True, timeout=2)
 
                             if captured_frame.detect_candidate:
                                 frame_read_task = executor.submit(captured_frame.save_file)
                                 write_tasks.append(frame_read_task)
+                self.capture.release()
             except cv2.error as e:
                 self.capturing = False
                 self.logger.error("Camera {}, on playground {} is not responding."
@@ -115,7 +116,10 @@ class VideoRecorder(object):
                 self.stop_ai()
                 if self.capture is not None:
                     self.capture.release()
-                concurrent.futures.wait(fs=write_tasks, timeout=10, return_when="ALL_COMPLETED")
+                concurrent.futures.wait(fs=write_tasks, timeout=2, return_when="ALL_COMPLETED")
+                executor.shutdown(False)
+                print("Camera {}, on playground {} finished recording."
+                      .format(self.camera.id, self.camera.playground))
 
     def stop_ai(self):
         # putting poison pill in ai_queue

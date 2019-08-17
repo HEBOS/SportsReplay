@@ -4,13 +4,22 @@ import time
 import ntpath
 import cv2
 from typing import List
-from Shared.Detection import Detection
+
 
 class SharedFunctions(object):
     @staticmethod
     def get_recording_path(root_path: str, building: int, playground: int, current_time: float):
         return os.path\
             .normpath(r"{path}/{building}-{playground}-{timestamp}"
+                      .format(path=root_path,
+                              building=str(building).zfill(5),
+                              playground=str(playground).zfill(3),
+                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
+
+    @staticmethod
+    def get_output_video(root_path: str, building: int, playground: int, current_time: float):
+        return os.path\
+            .normpath(r"{path}/{building}-{playground}-{timestamp}.avi"
                       .format(path=root_path,
                               building=str(building).zfill(5),
                               playground=str(playground).zfill(3),

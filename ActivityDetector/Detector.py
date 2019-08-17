@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-import threading
 import jetson.inference
 import jetson.utils
 import os
 import multiprocessing as mp
-import queue as queue
 from typing import List
 from Shared.LogHandler import LogHandler
 from Shared.CapturedFrame import CapturedFrame
@@ -13,26 +11,19 @@ from Shared.Detection import Detection
 
 class Detector(object):
     def __init__(self, playground: int, ai_queues: List[mp.Queue], class_id: int, network: str, threshold: float,
-                 width: int, height: int, fps: int, output_video: str):
+                 video_queue: mp.Queue):
         self.playground = playground
         self.ai_queues = ai_queues
         self.class_id = class_id
         self.network = network
         self.threshold = threshold
-        self.video_creating = True
-        self.video_creator_queue = queue.Queue()
-        self.video_creator_thread = threading.Thread(target=self.create_video, args=())
-        self.width = width
-        self.height = height
-        self.fps = fps
-        self.output_video = output_video
+        self.video_queue = video_queue
 
         # Logger
         self.logger = LogHandler("detector")
 
     def detect(self):
         detecting = True
-        self.video_creator_thread.start()
 
         # load the object detection network
         net = jetson.inference.detectNet(self.network,
@@ -68,13 +59,13 @@ class Detector(object):
                             if index != active_camera:
                                 while True:
                                     other_camera_frame: CapturedFrame = ai_queue.get()
-                                    if other_camera_frame.timestamp >= active_camera_frame:
+                                    if other_camera_frame.timestamp >= active_camera_frame.timestamp:
                                         detection_frames.append(other_camera_frame)
                                         break
 
                         # Now that we have all frames that represent exact time that situation took place,
                         # we run the detection
-                        for index, captured_frame in detection_frames:
+                        for captured_frame in detection_frames:
                             if captured_frame is not None:
 
                                 # If the file really exists on the disk, we load the file into memory, and
@@ -87,13 +78,13 @@ class Detector(object):
                                     detections = net.Detect(image, width, height)
 
                                     # Wait for cuda to process results
-                                    if len(detections) > 0:
-                                        jetson.utils.cudaDeviceSynchronize()
+                                    #if len(detections) > 0:
+                                    #    jetson.utils.cudaDeviceSynchronize()
 
                                     # Convert detections into balls
                                     balls = []
                                     for detection in detections:
-                                          if detection.ClassID == self.class_id:
+                                        if detection.ClassID == self.class_id:
                                             balls.append(Detection(detection.Left,
                                                                    detection.Right,
                                                                    detection.Top,
@@ -110,19 +101,14 @@ class Detector(object):
                         active_camera, active_camera_capture_frame = self.determine_active_camera(detection_frames,
                                                                                                   active_camera)
                         # Pass the active camera frame to Video Creator
-                        self.video_creator_queue.put(active_camera_capture_frame)
+                        self.video_queue.put(active_camera_capture_frame)
+                    else:
+                        self.video_queue.put(active_camera_frame)
+        except Exception as ex:
+            print(ex)
         finally:
-            self.video_creating = False
-            self.video_creator_thread.join()
-
-    def create_video(self):
-        out = cv2.VideoWriter(self.output_video, cv2.VideoWriter_fourcc(*'DIVX'), self.fps, (self.width, self.height))
-
-        while self.video_creating or not self.video_creator_queue.empty():
-            capture_frame: CapturedFrame = self.video_creator_queue.get()
-            out.write(capture_frame.frame)
-
-        out.release()
+            self.video_queue.put(None)
+            print("Detector finished working.")
 
     def get_largest_ball_size(self, balls: List[Detection]) -> int:
         max_size = 0
@@ -150,4 +136,3 @@ class Detector(object):
                 else:
                     # Otherwise, we select the first of the cameras that contain the largest ball as an active one
                     return capture_frame.camera.id, capture_frame
-

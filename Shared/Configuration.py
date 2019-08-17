@@ -11,7 +11,6 @@ class Configuration(object):
         self.recorder = {}
         self.activity_detector = {}
         self.logger = {}
-        self.post_recorder = {}
         self.video_maker = {}
         self.common = {}
 
@@ -29,8 +28,6 @@ class Configuration(object):
             for option in config.options(section):
                 if section == "recorder":
                     self.recorder[option] = config.get(section, option)
-                if section == "post-recorder":
-                    self.post_recorder[option] = config.get(section, option)
                 if section == "activity-detector":
                     self.activity_detector[option] = config.get(section, option)
                 if section == "video-maker":
