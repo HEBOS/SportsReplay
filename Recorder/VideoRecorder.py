@@ -99,14 +99,14 @@ class VideoRecorder(object):
                                                            file_path,
                                                            filename,
                                                            frame_number,
-                                                           snapshot_time)
+                                                           snapshot_time,
+                                                           captured_frame.frame_number % self.detection_frequency == 1)
 
-                            if captured_frame.frame_number % self.detection_frequency  == 1:
-                                self.ai_queue.put(captured_frame, block=True, timeout=2)
+                            self.ai_queue.put(captured_frame, block=True, timeout=2)
 
-                            frame_read_task = executor.submit(captured_frame.save_file)
-                            write_tasks.append(frame_read_task)
-
+                            if captured_frame.detect_candidate:
+                                frame_read_task = executor.submit(captured_frame.save_file)
+                                write_tasks.append(frame_read_task)
             except cv2.error as e:
                 self.capturing = False
                 self.logger.error("Camera {}, on playground {} is not responding."

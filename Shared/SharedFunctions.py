@@ -4,7 +4,7 @@ import time
 import ntpath
 import cv2
 from typing import List
-
+from Shared.Detection import Detection
 
 class SharedFunctions(object):
     @staticmethod
@@ -78,10 +78,11 @@ class SharedFunctions(object):
 
     # The reference for these methods: https://gist.github.com/atinfinity/b2f89e33e398559c5fcefda3ad3c0269
     @staticmethod
-    def from_cuda(image: cv2.cuda_GpuMat) -> cv2.Mat:
+    def from_cuda(image: cv2.cuda_GpuMat):
         return image.download()
 
     @staticmethod
-    def to_cuda(image: cv2.Mat) -> cv2.cuda_GpuMat:
+    def to_cuda(image) -> cv2.cuda_GpuMat:
         d_img = cv2.cuda_GpuMat()
         d_img.upload(image)
+

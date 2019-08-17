@@ -3,10 +3,10 @@ import jetson.inference
 import jetson.utils
 import os
 import time
-import cv2
 from typing import List
 
 from Shared.Configuration import Configuration
+from Shared.SharedFunctions import SharedFunctions
 
 
 class SpeedTest(object):
@@ -29,7 +29,7 @@ class SpeedTest(object):
         started_at = time.time()
 
         for jpg_file in self.samples:
-            img, width, height = jetson.utils.loadImageRGBA(jpg_file, zeroCopy=1)
+            img, width, height = jetson.utils.loadImageRGBA(jpg_file)
             detections = net.Detect(img, width, height)
             if len(detections) > 0:
                 for detection in detections:
