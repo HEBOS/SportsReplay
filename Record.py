@@ -134,8 +134,15 @@ def run_main():
         p.start()
 
     try:
-        for p in processes:
-            p.join()
+        while True:
+            time.sleep(2)
+            live_processes = 0
+            for p in processes:
+                if p.is_alive():
+                    live_processes += 1
+                    print("Process {} is alive.".format(p.pid))
+            if live_processes == 0:
+                break
 
         # Moving files to a new location
         print("Moving video to streaming  directory...")
@@ -153,7 +160,7 @@ def run_main():
     except:
         # Remove the whole session directory
         print("Directory {} has been removed, due to errors.".format(session_path))
-        shutil.rmtree(session_path)
+        #shutil.rmtree(session_path)
 
 
 if __name__ == "__main__":

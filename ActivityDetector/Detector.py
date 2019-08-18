@@ -56,12 +56,15 @@ class Detector(object):
                         # Also, we are dequeuing frames from all other queues, so that we find the same point in time,
                         # so that the comparison between real situation on the field can take place
                         for index, ai_queue in enumerate(self.ai_queues):
-                            if index != active_camera:
+                            if index != active_camera - 1:
                                 while True:
                                     other_camera_frame: CapturedFrame = ai_queue.get()
-                                    if other_camera_frame.timestamp >= active_camera_frame.timestamp:
-                                        detection_frames.append(other_camera_frame)
+                                    if other_camera_frame is None:
                                         break
+                                    else:
+                                        if other_camera_frame.timestamp >= active_camera_frame.timestamp:
+                                            detection_frames.append(other_camera_frame)
+                                            break
 
                         # Now that we have all frames that represent exact time that situation took place,
                         # we run the detection
@@ -108,6 +111,7 @@ class Detector(object):
             print(ex)
         finally:
             self.video_queue.put(None)
+            jetson.utils.cudaDeviceSynchronize()
             print("Detector finished working.")
 
     def get_largest_ball_size(self, balls: List[Detection]) -> int:
