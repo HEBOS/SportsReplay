@@ -2,6 +2,7 @@
 import jetson.inference
 import jetson.utils
 import os
+import sys
 import multiprocessing as mp
 from typing import List
 from Shared.LogHandler import LogHandler
@@ -23,17 +24,14 @@ class Detector(object):
         self.logger = LogHandler("detector")
 
     def detect(self):
-        detecting = True
-
         # load the object detection network
         net = jetson.inference.detectNet(self.network,
                                          [],
                                          float(self.threshold))
-
         active_camera = 1
 
         try:
-            while detecting:
+            while True:
                 # Determine queue of active camera
                 active_camera_queue: mp.Queue = self.ai_queues[active_camera - 1]
 
@@ -46,7 +44,9 @@ class Detector(object):
                     if active_camera_frame is None:
                         for index, ai_queue in enumerate(self.ai_queues):
                             while not ai_queue.empty():
-                                ai_queue.get()
+                                captured_frame: CapturedFrame = ai_queue.get()
+                                if captured_frame is not None:
+                                    captured_frame.remove_file()
                         break
 
                     # If we have found the candidate that needs AI detection, we put it in the detection list
@@ -75,14 +75,11 @@ class Detector(object):
                                 # remove it from the disk afterwards
                                 if os.path.isfile(captured_frame.filePath):
                                     image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
-                                    captured_frame.remove_file()
 
                                     # Run the AI detection, based on class id
                                     detections = net.Detect(image, width, height)
 
-                                    # Wait for cuda to process results
-                                    #if len(detections) > 0:
-                                    #    jetson.utils.cudaDeviceSynchronize()
+                                    jetson.utils.cudaDeviceSynchronize()
 
                                     # Convert detections into balls
                                     balls = []
@@ -107,12 +104,14 @@ class Detector(object):
                         self.video_queue.put(active_camera_capture_frame)
                     else:
                         self.video_queue.put(active_camera_frame)
+                else:
+                    print("Detect queue is empty.")
         except Exception as ex:
             print(ex)
         finally:
             self.video_queue.put(None)
-            jetson.utils.cudaDeviceSynchronize()
             print("Detector finished working.")
+            sys.exit(0)
 
     def get_largest_ball_size(self, balls: List[Detection]) -> int:
         max_size = 0

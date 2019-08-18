@@ -117,16 +117,14 @@ class VideoRecorder(object):
                         cv2.waitKey(1)
 
                         captured_frame = CapturedFrame(self.camera,
-                                                       frame,
                                                        file_path,
                                                        filename,
                                                        frame_number,
                                                        snapshot_time,
                                                        frame_number % self.detection_frequency == 1)
 
-                        self.ai_queue.put(captured_frame, block=True, timeout=2)
-                        if captured_frame.detect_candidate:
-                            self.saving_queue.put(captured_frame, block=True, timeout=2)
+                        self.saving_queue.put((captured_frame, frame), block=True, timeout=2)
+
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
@@ -143,8 +141,9 @@ class VideoRecorder(object):
                     break
 
             if not self.saving_queue.empty():
-                captured_frame: CapturedFrame = self.saving_queue.get()
-                captured_frame.save_file()
+                captured_frame, frame = self.saving_queue.get()
+                cv2.imwrite(captured_frame.filePath, cv2.UMat(frame))
+                self.ai_queue.put(captured_frame, block=True, timeout=2)
 
     def stop_ai(self):
         # putting poison pill in ai_queue

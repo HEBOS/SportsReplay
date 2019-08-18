@@ -25,7 +25,16 @@ class VideoMaker(object):
                 if capture_frame is None:
                     break
                 else:
-                    out.write(capture_frame.frame)
+                    out.write(cv2.imread(capture_frame.filePath))
+                    cv2.waitKey(1)
+                    capture_frame.remove_file()
 
         out.release()
+        self.clear_cv_from_memory()
         print("VideoMaker ended.")
+
+    def clear_cv_from_memory(self):
+        cv2.waitKey(1)
+        cv2.destroyAllWindows()
+        for i in range(1, 5):
+            cv2.waitKey(1)
