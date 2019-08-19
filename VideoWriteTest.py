@@ -43,12 +43,12 @@ class VideoWriteTest(object):
                 del sample_image
                 if rendered_images % fps == 0:
                     gc.collect()
-                    print("Rendered {} second".format(int((rendered_images + 1) / fps)))
+                    print("Rendered {} second".format(int(rendered_images / fps) + 1))
 
                 rendered_images += 1
-                if rendered_images == 649:
+                if rendered_images == 749:
                     break
-            if rendered_images == 649:
+            if rendered_images == 749:
                 break
 
         print("For 30 secs of video, at {} fps, it took {} secs to complete.".format(fps, time.time() - started_at))
