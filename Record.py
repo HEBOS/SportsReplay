@@ -64,7 +64,7 @@ def run_main():
     frames_to_skip = str(config.recorder["frames-to-skip"]).split(",")
 
     ai_queues = []
-    video_queue = mp.Queue()
+    video_queue = mp.Queue(maxsize=1000)
     processes = []
     i = 0
 
@@ -89,7 +89,7 @@ def run_main():
 
     for v in video_addresses:
         i += 1
-        ai_queue = mp.Queue()
+        ai_queue = mp.Queue(maxsize=10000)
         ai_queues.append(ai_queue)
 
         # Ensure video_delays array is initialised
@@ -140,9 +140,11 @@ def run_main():
             for p in processes:
                 if p.is_alive():
                     live_processes += 1
-                    print("Process {} is alive.".format(p.pid))
             if live_processes == 0:
                 break
+            else:
+                if len(processes) != live_processes:
+                    print("There are {}/{} processes still executing...".format(live_processes, len(processes)))
 
         # Moving files to a new location
         print("Moving video to streaming  directory...")

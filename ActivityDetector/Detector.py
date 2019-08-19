@@ -104,14 +104,11 @@ class Detector(object):
                         self.video_queue.put(active_camera_capture_frame)
                     else:
                         self.video_queue.put(active_camera_frame)
-                else:
-                    print("Detect queue is empty.")
         except Exception as ex:
             print(ex)
         finally:
             self.video_queue.put(None)
             print("Detector finished working.")
-            sys.exit(0)
 
     def get_largest_ball_size(self, balls: List[Detection]) -> int:
         max_size = 0

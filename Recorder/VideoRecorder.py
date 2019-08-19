@@ -30,7 +30,7 @@ class VideoRecorder(object):
         self.saving_lock = threading.Lock()
         self.saving = False
         self.saving_thread = None
-        self.saving_queue = queue.Queue()
+        self.saving_queue = queue.Queue(maxsize=1000)
 
         self.detection_frequency = math.floor(camera.fps / camera.cdfps)
 
@@ -142,7 +142,10 @@ class VideoRecorder(object):
 
             if not self.saving_queue.empty():
                 captured_frame, frame = self.saving_queue.get()
-                cv2.imwrite(captured_frame.filePath, cv2.UMat(frame))
+                img = cv2.UMat(frame)
+                cv2.imwrite(captured_frame.filePath, img)
+                del frame
+                del img
                 self.ai_queue.put(captured_frame, block=True, timeout=2)
 
     def stop_ai(self):

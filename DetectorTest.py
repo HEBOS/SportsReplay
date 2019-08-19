@@ -9,7 +9,7 @@ from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 
 
-class SpeedTest(object):
+class DetectorTest(object):
     def __init__(self):
         balls_identified = 0
         self.sample_directory = os.path.normpath(r"{}/ActivityDetector/SampleImages".format(os.getcwd()))
@@ -46,4 +46,4 @@ class SpeedTest(object):
 
 
 if __name__ == "__main__":
-    st = SpeedTest()
+    st = DetectorTest()
