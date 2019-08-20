@@ -2,7 +2,7 @@
 import jetson.inference
 import jetson.utils
 import os
-import sys
+import time
 import multiprocessing as mp
 from typing import List
 from Shared.LogHandler import LogHandler
@@ -48,7 +48,7 @@ class Detector(object):
                                 captured_frame: CapturedFrame = ai_queue.get()
                                 if captured_frame is not None:
                                     captured_frame.remove_file()
-                        detecting = False
+                        print("Detector - break after active camera frame is None.")
                         break
 
                     # If we have found the candidate that needs AI detection, we put it in the detection list
@@ -60,19 +60,18 @@ class Detector(object):
                         for index, ai_queue in enumerate(self.ai_queues):
                             if index != active_camera - 1:
                                 while True:
-                                    if ai_queue.empty():
-                                        detecting = False
-                                        break
-                                    else:
+                                    if not ai_queue.empty():
                                         other_camera_frame: CapturedFrame = ai_queue.get()
-                                        if other_camera_frame is None:
-                                            break
-                                        else:
+                                        if other_camera_frame is not None:
                                             if other_camera_frame.timestamp >= active_camera_frame.timestamp:
                                                 detection_frames.append(other_camera_frame)
                                                 break
                                             else:
                                                 other_camera_frame.remove_file()
+                                        else:
+                                            print("Detector - poison pill detected - exiting...")
+                                            detecting = False
+                                            break
 
                         # Now that we have all frames that represent exact time that situation took place,
                         # we run the detection
@@ -112,10 +111,14 @@ class Detector(object):
                         self.video_queue.put(active_camera_capture_frame)
                     else:
                         self.video_queue.put(active_camera_frame)
+            print("Detector - normal exit.")
         except Exception as ex:
-            print(ex)
+            print("ERROR: {}".format(ex))
         finally:
-            self.video_queue.put(None)
+            # Put poison pills to force VideoMaker to exit
+            for i in range(0, 9):
+                self.video_queue.put(None)
+
             print("Detector finished working.")
 
     def get_largest_ball_size(self, balls: List[Detection]) -> int:
@@ -142,5 +145,5 @@ class Detector(object):
                 if capture_frame.camera.id == active_camera:
                     return active_camera, capture_frame
                 else:
-                    # Otherwise, we select the first of the cameras that contain the largest ball as an active one
+                    # Otherwise, we select first camera, which contains the largest ball as an active one
                     return capture_frame.camera.id, capture_frame

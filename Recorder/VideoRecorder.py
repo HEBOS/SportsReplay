@@ -30,7 +30,7 @@ class VideoRecorder(object):
         self.saving_lock = threading.Lock()
         self.saving = False
         self.saving_thread = None
-        self.saving_queue = queue.Queue(maxsize=1000)
+        self.saving_queue = queue.Queue(maxsize=2000)
 
         self.detection_frequency = math.floor(camera.fps / camera.cdfps)
 
@@ -149,8 +149,9 @@ class VideoRecorder(object):
                 self.ai_queue.put(captured_frame, block=True, timeout=2)
 
     def stop_ai(self):
-        # putting poison pill in ai_queue
-        self.ai_queue.put(None)
+        # putting poison pills in ai_queue
+        for i in range(0, 9):
+            self.ai_queue.put(None)
 
     def cv2error(self):
         self.logger.error("Camera {}, on playground {} is not responding."

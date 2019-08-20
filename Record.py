@@ -89,7 +89,7 @@ def run_main():
 
     for v in video_addresses:
         i += 1
-        ai_queue = mp.Queue(maxsize=10000)
+        ai_queue = mp.Queue(maxsize=30000)
         ai_queues.append(ai_queue)
 
         # Ensure video_delays array is initialised
