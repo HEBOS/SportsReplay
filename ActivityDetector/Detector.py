@@ -24,6 +24,7 @@ class Detector(object):
         self.logger = LogHandler("detector")
 
     def detect(self):
+        detecting = True
         # load the object detection network
         net = jetson.inference.detectNet(self.network,
                                          [],
@@ -31,7 +32,7 @@ class Detector(object):
         active_camera = 1
 
         try:
-            while True:
+            while detecting:
                 # Determine queue of active camera
                 active_camera_queue: mp.Queue = self.ai_queues[active_camera - 1]
 
@@ -47,6 +48,7 @@ class Detector(object):
                                 captured_frame: CapturedFrame = ai_queue.get()
                                 if captured_frame is not None:
                                     captured_frame.remove_file()
+                        detecting = False
                         break
 
                     # If we have found the candidate that needs AI detection, we put it in the detection list
@@ -58,13 +60,19 @@ class Detector(object):
                         for index, ai_queue in enumerate(self.ai_queues):
                             if index != active_camera - 1:
                                 while True:
-                                    other_camera_frame: CapturedFrame = ai_queue.get()
-                                    if other_camera_frame is None:
+                                    if ai_queue.empty():
+                                        detecting = False
                                         break
                                     else:
-                                        if other_camera_frame.timestamp >= active_camera_frame.timestamp:
-                                            detection_frames.append(other_camera_frame)
+                                        other_camera_frame: CapturedFrame = ai_queue.get()
+                                        if other_camera_frame is None:
                                             break
+                                        else:
+                                            if other_camera_frame.timestamp >= active_camera_frame.timestamp:
+                                                detection_frames.append(other_camera_frame)
+                                                break
+                                            else:
+                                                other_camera_frame.remove_file()
 
                         # Now that we have all frames that represent exact time that situation took place,
                         # we run the detection

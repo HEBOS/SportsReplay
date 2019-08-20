@@ -19,7 +19,7 @@ class SharedFunctions(object):
     @staticmethod
     def get_output_video(root_path: str, building: int, playground: int, current_time: float):
         return os.path\
-            .normpath(r"{path}/{building}-{playground}-{timestamp}.mp4"
+            .normpath(r"{path}/{building}-{playground}-{timestamp}.avi"
                       .format(path=root_path,
                               building=str(building).zfill(5),
                               playground=str(playground).zfill(3),
@@ -94,4 +94,16 @@ class SharedFunctions(object):
     def to_cuda(image) -> cv2.cuda_GpuMat:
         d_img = cv2.cuda_GpuMat()
         d_img.upload(image)
+
+    @staticmethod
+    def normalise_time(frame_number: int, fps: int) -> str:
+        seconds = int(frame_number / fps)
+        minutes = int(seconds / 60)
+        hours = int(minutes / 60)
+        minutes = minutes - (hours * 60)
+        seconds = seconds - (hours * 60 * 60) - (minutes * 60)
+
+        return "{}:{}:{}".format(str(hours).zfill(2),
+                                 str(minutes).zfill(2),
+                                 str(seconds).zfill(2))
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import multiprocessing as mp
-from Shared.CapturedFrame import CapturedFrame
 import cv2
 import gc
+import os
+from Shared.CapturedFrame import CapturedFrame
+from Shared.SharedFunctions import SharedFunctions
 
 
 class VideoMaker(object):
@@ -17,8 +19,18 @@ class VideoMaker(object):
 
     def start(self):
         self.video_creating = True
-        # out = cv2.VideoWriter(self.output_video, cv2.VideoWriter_fourcc(*'mp4v'), self.fps, (self.width, self.height))
-        out = cv2.VideoWriter(self.output_video, cv2.VideoWriter_fourcc(*'mp4v'), self.fps, (self.width, self.height))
+        output_pipeline = "appsrc " \
+                          "! autovideoconvert " \
+                          "! video/x-raw,format=(string)I420,width={width},height={height},framerate={fps}/1 " \
+                          "! omxh264enc ! video/x-h264,stream-format=(string)byte-stream " \
+                          "! h264parse " \
+                          "! qtmux " \
+                          "! filesink location={video}.avi".format(width=self.width,
+                                                                   height=self.height,
+                                                                   fps=self.fps,
+                                                                   video=self.output_video)
+
+        writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'X264'), self.fps, (self.width, self.height))
 
         i = 0
         while True:
@@ -29,15 +41,15 @@ class VideoMaker(object):
                 if capture_frame is None:
                     break
                 else:
-                    frame = cv2.UMat(cv2.imread(capture_frame.filePath), usageFlags=cv2.USAGE_ALLOCATE_DEVICE_MEMORY)
-                    out.write(frame)
+                    frame = cv2.imread(capture_frame.filePath)
+                    writer.write(frame)
                     cv2.waitKey(1)
                     del frame
                     capture_frame.remove_file()
-                    if i % 20:
+                    if i % self.fps == 0:
                         gc.collect()
-                        i = 0
-        out.release()
+                        print("Output video: {}".format(SharedFunctions.normalise_time(i, self.fps)))
+        writer.release()
         self.clear_cv_from_memory()
         print("VideoMaker ended.")
 

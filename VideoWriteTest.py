@@ -27,14 +27,25 @@ class VideoWriteTest(object):
         fps = int(config.recorder["fps"])
         width = int(config.recorder["width"])
         height = int(config.recorder["height"])
+        output_video_file = os.path.join(video_making_path, SharedFunctions.get_output_video(video_making_path,
+                                                                                             1,
+                                                                                             1,
+                                                                                             time.time()))
+        output_pipeline = "appsrc " \
+                          "! autovideoconvert " \
+                          "! video/x-raw,format=(string)I420,width={width},height={height},framerate={fps}/1 " \
+                          "! omxh264enc ! video/x-h264,stream-format=(string)byte-stream " \
+                          "! h264parse " \
+                          "! qtmux " \
+                          "! filesink location={video}.avi".format(width=width,
+                                                                   height=height,
+                                                                   fps=fps,
+                                                                   video=output_video_file)
 
-        output_video_path = os.path.join(dump_path, "video-test.mp4")
-        out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
-
+        print(output_pipeline)
+        out = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'X264'), fps, (width, height))
         started_at = time.time()
-
         rendered_images = 0
-
         for r in range(0, 100):
             for im in samples:
                 sample_image = cv2.imread(im)
