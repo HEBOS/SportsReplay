@@ -28,6 +28,7 @@ class VideoRecorder(object):
 
         # Saving files to be consumed by AI detector
         self.saving_lock = threading.Lock()
+        self.saving_counter = 0
         self.saving = False
         self.saving_thread = None
         self.saving_queue = queue.Queue(maxsize=2000)
@@ -114,7 +115,6 @@ class VideoRecorder(object):
                         filename = SharedFunctions.get_recording_file_name(int(snapshot_time),
                                                                            frame_number)
                         ref, frame = self.capture.retrieve(flag=0)
-                        cv2.waitKey(1)
 
                         captured_frame = CapturedFrame(self.camera,
                                                        file_path,
@@ -124,6 +124,10 @@ class VideoRecorder(object):
                                                        frame_number % self.detection_frequency == 1)
 
                         self.saving_queue.put((captured_frame, frame), block=True, timeout=2)
+                        with self.saving_lock:
+                            self.saving_counter += 1
+                            if self.saving_counter % 30 == 0:
+                                print("Saving queue size = {}".format(self.saving_counter))
 
         except cv2.error as e:
             self.capturing = False
@@ -142,11 +146,11 @@ class VideoRecorder(object):
 
             if not self.saving_queue.empty():
                 captured_frame, frame = self.saving_queue.get()
-                img = cv2.UMat(frame)
-                cv2.imwrite(captured_frame.filePath, img)
+                cv2.imwrite(captured_frame.filePath, frame)
                 del frame
-                del img
                 self.ai_queue.put(captured_frame, block=True, timeout=2)
+                with self.saving_lock:
+                    self.saving_counter -= 1
 
     def stop_ai(self):
         # putting poison pills in ai_queue

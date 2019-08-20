@@ -43,7 +43,6 @@ class VideoMaker(object):
                 else:
                     frame = cv2.imread(capture_frame.filePath)
                     writer.write(frame)
-                    cv2.waitKey(1)
                     del frame
                     capture_frame.remove_file()
                     if i % self.fps == 0:
