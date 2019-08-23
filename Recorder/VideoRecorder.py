@@ -26,13 +26,6 @@ class VideoRecorder(object):
         self.capturing = False
         self.capture_thread = None
 
-        # Saving files to be consumed by AI detector
-        self.saving_lock = threading.Lock()
-        self.saving_counter = 0
-        self.saving = False
-        self.saving_thread = None
-        self.saving_queue = queue.Queue(maxsize=2000)
-
         self.detection_frequency = math.floor(camera.fps / camera.cdfps)
 
     def start(self):
@@ -41,11 +34,6 @@ class VideoRecorder(object):
                 self.capturing = True
             self.capture_thread = threading.Thread(target=self.record, args=())
             self.capture_thread.start()
-
-            with self.saving_lock:
-                self.saving = True
-            self.saving_thread = threading.Thread(target=self.save_file, args=())
-            self.saving_thread.start()
 
             while (time.time() < self.camera.end_of_capture) and self.capturing:
                 time.sleep(1)
@@ -58,10 +46,6 @@ class VideoRecorder(object):
             with self.capture_lock:
                 self.capturing = False
             self.capture_thread.join()
-
-            with self.saving_lock:
-                self.saving = False
-            self.saving_thread.join()
 
             self.clear_cv_from_memory()
             print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
@@ -121,14 +105,10 @@ class VideoRecorder(object):
                                                        filename,
                                                        frame_number,
                                                        snapshot_time,
-                                                       frame_number % self.detection_frequency == 1)
+                                                       frame_number % self.detection_frequency == 1,
+                                                       frame)
 
-                        self.saving_queue.put((captured_frame, frame), block=True, timeout=2)
-                        with self.saving_lock:
-                            self.saving_counter += 1
-                            if self.saving_counter % 30 == 0:
-                                print("Saving queue size = {}".format(self.saving_counter))
-
+                        self.ai_queue.put(captured_frame, block=True, timeout=2)
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
@@ -137,20 +117,6 @@ class VideoRecorder(object):
             self.stop_ai()
             print("Camera {}, on playground {} finished recording."
                   .format(self.camera.id, self.camera.playground))
-
-    def save_file(self):
-        while True:
-            with self.saving_lock:
-                if not self.saving:
-                    break
-
-            if not self.saving_queue.empty():
-                captured_frame, frame = self.saving_queue.get()
-                cv2.imwrite(captured_frame.filePath, frame)
-                del frame
-                self.ai_queue.put(captured_frame, block=True, timeout=2)
-                with self.saving_lock:
-                    self.saving_counter -= 1
 
     def stop_ai(self):
         # putting poison pills in ai_queue

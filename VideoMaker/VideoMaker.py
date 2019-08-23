@@ -41,12 +41,9 @@ class VideoMaker(object):
                 if capture_frame is None:
                     break
                 else:
-                    frame = cv2.imread(capture_frame.filePath)
-                    writer.write(frame)
-                    del frame
-                    capture_frame.remove_file()
+                    writer.write(capture_frame.frame)
+                    capture_frame.release()
                     if i % self.fps == 0:
-                        gc.collect()
                         print("Output video: {}".format(SharedFunctions.normalise_time(i, self.fps)))
         writer.release()
         self.clear_cv_from_memory()

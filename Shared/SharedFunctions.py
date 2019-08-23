@@ -88,12 +88,13 @@ class SharedFunctions(object):
     @staticmethod
     def normalise_time(frame_number: int, fps: int) -> str:
         seconds = int(frame_number / fps)
-        minutes = int(seconds / 60)
-        hours = int(minutes / 60)
-        minutes = minutes - (hours * 60)
-        seconds = seconds - (hours * 60 * 60) - (minutes * 60)
+        hours = (int(frame_number / fps) / 3600)
+        minutes = (int(frame_number / fps) / 3600)
 
-        return "{}:{}:{}".format(str(hours).zfill(2),
+        minutes = minutes - (hours * 60)
+        seconds = seconds - (minutes * 60) - (hours * 3600)
+
+        return "{}:{}:{}".format(str(int(hours)).zfill(2),
                                  str(minutes).zfill(2),
                                  str(seconds).zfill(2))
 

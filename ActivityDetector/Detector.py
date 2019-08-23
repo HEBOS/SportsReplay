@@ -2,7 +2,7 @@
 import jetson.inference
 import jetson.utils
 import os
-import time
+import cv2
 import multiprocessing as mp
 from typing import List
 from Shared.LogHandler import LogHandler
@@ -45,9 +45,8 @@ class Detector(object):
                     if active_camera_frame is None:
                         for index, ai_queue in enumerate(self.ai_queues):
                             while not ai_queue.empty():
-                                captured_frame: CapturedFrame = ai_queue.get()
-                                if captured_frame is not None:
-                                    captured_frame.remove_file()
+                                ai_queue.get()
+
                         print("Detector - break after active camera frame is None.")
                         break
 
@@ -66,8 +65,6 @@ class Detector(object):
                                             if other_camera_frame.timestamp >= active_camera_frame.timestamp:
                                                 detection_frames.append(other_camera_frame)
                                                 break
-                                            else:
-                                                other_camera_frame.remove_file()
                                         else:
                                             print("Detector - poison pill detected - exiting...")
                                             detecting = False
@@ -81,7 +78,9 @@ class Detector(object):
                                 # If the file really exists on the disk, we load the file into memory, and
                                 # remove it from the disk afterwards
                                 if os.path.isfile(captured_frame.filePath):
+                                    cv2.imagewrite(captured_frame.filePath)
                                     image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
+                                    captured_frame.remove_file()
 
                                     # Run the AI detection, based on class id
                                     detections = net.Detect(image, width, height)
