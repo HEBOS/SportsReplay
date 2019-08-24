@@ -74,6 +74,7 @@ install_dependencies () {
         python3-numpy
 }
 
+
 configure () {
     local CMAKEFLAGS="
         -D BUILD_EXAMPLES=OFF

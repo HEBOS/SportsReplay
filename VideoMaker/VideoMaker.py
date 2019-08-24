@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-import multiprocessing as mp
 import cv2
 import gc
-import os
 from Shared.CapturedFrame import CapturedFrame
 from Shared.SharedFunctions import SharedFunctions
+from Shared.MultiProcessingQueue import MultiProcessingQueue
 
 
 class VideoMaker(object):
-    def __init__(self, playground: int, video_queue: mp.Queue, output_video: str, width: int, height: int, fps: int):
+    def __init__(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
+                 width: int, height: int, fps: int):
         self.playground = playground
         self.video_queue = video_queue
         self.output_video = output_video
@@ -25,32 +25,29 @@ class VideoMaker(object):
                           "! omxh264enc ! video/x-h264,stream-format=(string)byte-stream " \
                           "! h264parse " \
                           "! qtmux " \
-                          "! filesink location={video}.avi".format(width=self.width,
-                                                                   height=self.height,
-                                                                   fps=self.fps,
-                                                                   video=self.output_video)
+                          "! filesink location={video}".format(width=self.width,
+                                                               height=self.height,
+                                                               fps=self.fps,
+                                                               video=self.output_video)
 
         writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'X264'), self.fps, (self.width, self.height))
 
         i = 0
         while True:
-            i += 1
-            if not self.video_queue.empty():
-                capture_frame: CapturedFrame = self.video_queue.get()
+            if not self.video_queue.is_empty():
+                i += 1
+                capture_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
 
                 if capture_frame is None:
                     break
                 else:
                     writer.write(capture_frame.frame)
                     capture_frame.release()
+                    del capture_frame
+
                     if i % self.fps == 0:
                         print("Output video: {}".format(SharedFunctions.normalise_time(i, self.fps)))
         writer.release()
-        self.clear_cv_from_memory()
+        SharedFunctions.release_open_cv()
         print("VideoMaker ended.")
 
-    def clear_cv_from_memory(self):
-        cv2.waitKey(1)
-        cv2.destroyAllWindows()
-        for i in range(1, 5):
-            cv2.waitKey(1)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import time
 import multiprocessing as mp
+import time
 import os
 import shutil
 from typing import List
@@ -10,11 +10,12 @@ from Recorder.VideoRecorder import VideoRecorder
 from ActivityDetector.Detector import Detector
 from Shared.Camera import Camera
 from VideoMaker.VideoMaker import VideoMaker
+from Shared.MultiProcessingQueue import MultiProcessingQueue
 
 
 def start_single_camera(camera_id: int, source: str, fps: int, cdfps: float, width: int, height: int, client: int,
                         building: int, playground: int, target_path: str,
-                        start_of_capture: time, end_of_capture: time, frames_to_skip: int, ai_queue: mp.Queue):
+                        start_of_capture: time, end_of_capture: time, frames_to_skip: int, ai_queue: MultiProcessingQueue):
 
     camera = Camera(camera_id, source, fps, cdfps, width, height,
                     client, building, playground, target_path, start_of_capture, end_of_capture,
@@ -24,13 +25,14 @@ def start_single_camera(camera_id: int, source: str, fps: int, cdfps: float, wid
     video.start()
 
 
-def start_activity_detection(playground: int, ai_queues: List[mp.Queue], class_id: int, network: str, threshold: float,
-                             video_queue):
+def start_activity_detection(playground: int, ai_queues: List[MultiProcessingQueue], class_id: int,
+                             network: str, threshold: float, video_queue):
     detector = Detector(playground, ai_queues, class_id, network, threshold, video_queue)
     detector.detect()
 
 
-def start_video_making(playground: int, video_queue: mp.Queue, output_video: str, width: int, height: int, fps: int):
+def start_video_making(playground: int, video_queue: MultiProcessingQueue, output_video: str, width: int, height: int,
+                       fps: int):
     video_maker = VideoMaker(playground, video_queue, output_video, width, height, fps)
     video_maker.start()
 
@@ -40,8 +42,8 @@ def run_main():
 
     # Schedule the start and end of capture 3 seconds ahead, so that all camera start at the same time
     playtime = int(config.common["playtime"])
-    start_of_capture = time.time() + 10
-    end_of_capture = start_of_capture + playtime
+    start_of_capture = time.time() + 15
+    end_of_capture = start_of_capture + 15 + playtime
     video_addresses = str(config.recorder["video"]).split(",")
 
     # Ensure that root directory exists
@@ -64,7 +66,7 @@ def run_main():
     frames_to_skip = str(config.recorder["frames-to-skip"]).split(",")
 
     ai_queues = []
-    video_queue = mp.Queue(maxsize=1000)
+    video_queue = MultiProcessingQueue(maxsize=1000)
     processes = []
     i = 0
 
@@ -87,9 +89,15 @@ def run_main():
 
     output_video = SharedFunctions.get_output_video(video_making_path, building, playground, start_of_capture)
 
+    processes.append(mp.Process(target=start_activity_detection,
+                                args=(playground, ai_queues, class_id, network, threshold, video_queue)))
+
+    processes.append(mp.Process(target=start_video_making,
+                                args=(playground, video_queue, output_video, width, height, fps)))
+
     for v in video_addresses:
         i += 1
-        ai_queue = mp.Queue(maxsize=30000)
+        ai_queue = MultiProcessingQueue(maxsize=1000)
         ai_queues.append(ai_queue)
 
         # Ensure video_delays array is initialised
@@ -122,12 +130,6 @@ def run_main():
                                           int(frames_to_skip[i - 1]),
                                           ai_queue
                                           )))
-
-    processes.append(mp.Process(target=start_activity_detection,
-                                args=(playground, ai_queues, class_id, network, threshold, video_queue)))
-
-    processes.append(mp.Process(target=start_video_making,
-                                args=(playground, video_queue, output_video, width, height, fps)))
 
     started_at = time.time()
     for p in processes:
@@ -166,5 +168,5 @@ def run_main():
 
 
 if __name__ == "__main__":
-    mp.set_start_method('spawn')
+    #mp.set_start_method('fork')
     run_main()

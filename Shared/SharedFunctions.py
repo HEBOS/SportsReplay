@@ -87,14 +87,19 @@ class SharedFunctions(object):
 
     @staticmethod
     def normalise_time(frame_number: int, fps: int) -> str:
-        seconds = int(frame_number / fps)
-        hours = (int(frame_number / fps) / 3600)
-        minutes = (int(frame_number / fps) / 3600)
-
-        minutes = minutes - (hours * 60)
-        seconds = seconds - (minutes * 60) - (hours * 3600)
+        total_seconds = int(frame_number / fps)
+        hours = int(total_seconds / 3600)
+        minutes = int(int(total_seconds - (hours * 3600)) / 60)
+        seconds = total_seconds - (hours * 3600) - (minutes * 60)
 
         return "{}:{}:{}".format(str(int(hours)).zfill(2),
                                  str(minutes).zfill(2),
                                  str(seconds).zfill(2))
+
+    @staticmethod
+    def release_open_cv():
+        cv2.waitKey(1)
+        cv2.destroyAllWindows()
+        for i in range(1, 5):
+            cv2.waitKey(1)
 

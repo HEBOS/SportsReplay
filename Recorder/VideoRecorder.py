@@ -3,16 +3,15 @@ import time
 import logging
 import math
 import cv2
-import multiprocessing as mp
-import queue
 from Shared.LogHandler import LogHandler
 from Shared.SharedFunctions import SharedFunctions
 from Shared.Camera import Camera
 from Shared.CapturedFrame import CapturedFrame
+from Shared.MultiProcessingQueue import MultiProcessingQueue
 
 
 class VideoRecorder(object):
-    def __init__(self, camera: Camera, ai_queue: mp.Queue):
+    def __init__(self, camera: Camera, ai_queue: MultiProcessingQueue):
         self.camera = camera
         self.ai_queue = ai_queue
 
@@ -47,7 +46,7 @@ class VideoRecorder(object):
                 self.capturing = False
             self.capture_thread.join()
 
-            self.clear_cv_from_memory()
+            SharedFunctions.release_open_cv()
             print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
 
     def record(self):
@@ -108,20 +107,15 @@ class VideoRecorder(object):
                                                        frame_number % self.detection_frequency == 1,
                                                        frame)
 
-                        self.ai_queue.put(captured_frame, block=True, timeout=2)
+                        self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera.id, self.camera.playground))
         finally:
-            self.stop_ai()
+            self.ai_queue.mark_as_done()
             print("Camera {}, on playground {} finished recording."
                   .format(self.camera.id, self.camera.playground))
-
-    def stop_ai(self):
-        # putting poison pills in ai_queue
-        for i in range(0, 9):
-            self.ai_queue.put(None)
 
     def cv2error(self):
         self.logger.error("Camera {}, on playground {} is not responding."

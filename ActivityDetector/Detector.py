@@ -2,17 +2,18 @@
 import jetson.inference
 import jetson.utils
 import os
+import time
 import cv2
-import multiprocessing as mp
 from typing import List
 from Shared.LogHandler import LogHandler
 from Shared.CapturedFrame import CapturedFrame
 from Shared.Detection import Detection
+from Shared.MultiProcessingQueue import MultiProcessingQueue
 
 
 class Detector(object):
-    def __init__(self, playground: int, ai_queues: List[mp.Queue], class_id: int, network: str, threshold: float,
-                 video_queue: mp.Queue):
+    def __init__(self, playground: int, ai_queues: List[MultiProcessingQueue], class_id: int, network: str,
+                 threshold: float, video_queue: MultiProcessingQueue):
         self.playground = playground
         self.ai_queues = ai_queues
         self.class_id = class_id
@@ -30,94 +31,101 @@ class Detector(object):
                                          [],
                                          float(self.threshold))
         active_camera = 1
-
+        #time.sleep(30)
         try:
             while detecting:
                 # Determine queue of active camera
-                active_camera_queue: mp.Queue = self.ai_queues[active_camera - 1]
+                active_camera_queue: MultiProcessingQueue = self.ai_queues[active_camera - 1]
 
                 # We only proceed, if there is anything in active camera queu
-                if not active_camera_queue.empty():
-                    active_camera_frame: CapturedFrame = active_camera_queue.get()
+                if not active_camera_queue.is_empty():
+                    active_camera_frame: CapturedFrame = \
+                        active_camera_queue.dequeue("Ai Queue {}".format(active_camera))
 
                     # We are stopping detection if we have reached the end of the queue
                     # Also, we need to remove all queues to reclaim the used memory
                     if active_camera_frame is None:
                         for index, ai_queue in enumerate(self.ai_queues):
-                            while not ai_queue.empty():
-                                ai_queue.get()
+                            while not ai_queue.is_empty():
+                                captured_frame: CapturedFrame = ai_queue.dequeue("AI Queue {}".format(index + 1))
+                                if captured_frame is not None:
+                                    captured_frame.release()
+                                    del captured_frame
 
                         print("Detector - break after active camera frame is None.")
                         break
 
                     # If we have found the candidate that needs AI detection, we put it in the detection list
                     if active_camera_frame.detect_candidate:
-                        detection_frames = [active_camera_frame]
+                        start_time = time.time()
+                        candidate_frames = [active_camera_frame]
 
                         # Also, we are dequeuing frames from all other queues, so that we find the same point in time,
                         # so that the comparison between real situation on the field can take place
                         for index, ai_queue in enumerate(self.ai_queues):
                             if index != active_camera - 1:
                                 while True:
-                                    if not ai_queue.empty():
-                                        other_camera_frame: CapturedFrame = ai_queue.get()
+                                    if not ai_queue.is_empty():
+                                        other_camera_frame: CapturedFrame = \
+                                            ai_queue.dequeue("AI Queue {}".format(index + 1))
                                         if other_camera_frame is not None:
                                             if other_camera_frame.timestamp >= active_camera_frame.timestamp:
-                                                detection_frames.append(other_camera_frame)
+                                                candidate_frames.append(other_camera_frame)
                                                 break
                                         else:
                                             print("Detector - poison pill detected - exiting...")
                                             detecting = False
                                             break
 
-                        # Now that we have all frames that represent exact time that situation took place,
+                        # Now that we have all frames that represent exact time when that situation took place,
                         # we run the detection
-                        for captured_frame in detection_frames:
+                        for captured_frame in candidate_frames:
                             if captured_frame is not None:
 
-                                # If the file really exists on the disk, we load the file into memory, and
-                                # remove it from the disk afterwards
-                                if os.path.isfile(captured_frame.filePath):
-                                    cv2.imagewrite(captured_frame.filePath)
-                                    image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
-                                    captured_frame.remove_file()
+                                cv2.imwrite(captured_frame.filePath, captured_frame.frame)
+                                image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
+                                captured_frame.remove_file()
 
-                                    # Run the AI detection, based on class id
-                                    detections = net.Detect(image, width, height)
+                                # Run the AI detection, based on class id
+                                detections = net.Detect(image, width, height)
 
-                                    jetson.utils.cudaDeviceSynchronize()
+                                jetson.utils.cudaDeviceSynchronize()
+                                del image
 
-                                    # Convert detections into balls
-                                    balls = []
-                                    for detection in detections:
-                                        if detection.ClassID == self.class_id:
-                                            balls.append(Detection(detection.Left,
-                                                                   detection.Right,
-                                                                   detection.Top,
-                                                                   detection.Bottom,
-                                                                   detection.Width,
-                                                                   detection.Height,
-                                                                   detection.Confidence,
-                                                                   detection.Instance))
+                                # Convert detections into balls
+                                balls = []
+                                for detection in detections:
+                                    if detection.ClassID == self.class_id:
+                                        balls.append(Detection(detection.Left,
+                                                               detection.Right,
+                                                               detection.Top,
+                                                               detection.Bottom,
+                                                               detection.Width,
+                                                               detection.Height,
+                                                               detection.Confidence,
+                                                               detection.Instance))
 
-                                    # Save largest ball size information on captured frame
-                                    captured_frame.largest_ball_size = self.get_largest_ball_size(balls)
+                                del detections
+
+                                # Save largest ball size information on captured frame
+                                captured_frame.largest_ball_size = self.get_largest_ball_size(balls)
 
                         # Determine the active camera
-                        active_camera, active_camera_capture_frame = self.determine_active_camera(detection_frames,
+                        active_camera, active_camera_capture_frame = self.determine_active_camera(candidate_frames,
                                                                                                   active_camera)
                         # Pass the active camera frame to Video Creator
-                        self.video_queue.put(active_camera_capture_frame)
+                        self.video_queue.enqueue(active_camera_capture_frame, "Video Queue")
+                        del active_camera_capture_frame
+
+                        print("Detection took = {}".format(time.time() - start_time))
                     else:
-                        self.video_queue.put(active_camera_frame)
+                        self.video_queue.enqueue(active_camera_frame, "Video Queue")
+
             print("Detector - normal exit.")
         except Exception as ex:
             print("ERROR: {}".format(ex))
         finally:
-            # Put poison pills to force VideoMaker to exit
-            for i in range(0, 9):
-                self.video_queue.put(None)
-
+            self.video_queue.mark_as_done()
             print("Detector finished working.")
 
     def get_largest_ball_size(self, balls: List[Detection]) -> int:

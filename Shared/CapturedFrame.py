@@ -25,6 +25,5 @@ class CapturedFrame(object):
 
     def release(self):
         del self.frame
-        self.frame = None
         if self.frame_number % (self.camera.fps * 2) == 0:
             gc.collect()

@@ -6,35 +6,44 @@ import gc
 from pympler.tracker import SummaryTracker
 from mem_top import mem_top
 
-mp.set_start_method('forkserver')
+# mp.set_start_method('forkserver')
 
 tracker = SummaryTracker()
 
 before = psutil.virtual_memory()
 image = cv2.imread(
     '/home/sportsreplay/GitHub/sports-replay-hrvoje/ActivityDetector/SampleImages/frame_1564827634_0001.jpg')
+# image = "bla"
 q = mp.Queue()
+foo = None
 
-for i in range(500):
-    q.put(image)
 
-q.put(None)
+def fill_queue(q):
+    for i in range(500):
+        q.put(image)
+
+# q.put(None)
+
 
 while True:
-    if not q.empty():
+    if not q.qsize() == 0:
+        print(q.qsize())
         some_image = q.get()
         if some_image is None:
             del some_image
             break
         del some_image
+    else:
+        # print("filling queue with 500 images")
+        fill_queue(q)
 
 del image
-del q
+del foo
 
-cv2.waitKey(1)
-cv2.destroyAllWindows()
-for i in range(1, 5):
-    cv2.waitKey(1)
+# cv2.waitKey(1)
+# cv2.destroyAllWindows()
+# for i in range(1, 5):
+#     cv2.waitKey(1)
 
 n = gc.collect()
 print("Waiting for garbage collector to reclaim the memory.")
