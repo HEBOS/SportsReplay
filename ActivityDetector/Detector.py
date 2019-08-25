@@ -30,9 +30,10 @@ class Detector(object):
         net = jetson.inference.detectNet(self.network,
                                          [],
                                          float(self.threshold))
-        active_camera = 1
+
         #time.sleep(30)
         try:
+            active_camera = 1
             while detecting:
                 # Determine queue of active camera
                 active_camera_queue: MultiProcessingQueue = self.ai_queues[active_camera - 1]
@@ -82,16 +83,16 @@ class Detector(object):
                         for captured_frame in candidate_frames:
                             if captured_frame is not None:
 
-                                #cv2.imwrite(captured_frame.filePath, captured_frame.frame)
-                                #image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
-                                #captured_frame.remove_file()
+                                # Before detection starts, we push frames from active camera to video queue, and
+                                # discard frames from other cameras, to resolve the problem with detection letancy
+                                timestamp_stopper = active_camera_frame.get_future_timestamp(
+                                    int(1 / active_camera_frame.camera.cdfps * active_camera_frame.camera.cdfps))
+                                self.forward_frames(timestamp_stopper, active_camera)
 
                                 rgba = cv2.cvtColor(captured_frame.frame, cv2.COLOR_RGB2RGBA)
                                 image = jetson.utils.cudaFromNumpy(rgba)
-
                                 # Run the AI detection, based on class id
                                 detections = net.Detect(image, 1280, 720)
-
                                 jetson.utils.cudaDeviceSynchronize()
                                 del image
 
@@ -157,3 +158,34 @@ class Detector(object):
                 else:
                     # Otherwise, we select first camera, which contains the largest ball as an active one
                     return capture_frame.camera.id, capture_frame
+
+    def forward_frames(self, timestamp_stopper: float, active_camera: int) -> bool:
+        print("Fast forwarding to {}".format(timestamp_stopper))
+        for index, ai_queue in enumerate(self.ai_queues):
+            if index != active_camera - 1:
+                while True:
+                    if not ai_queue.is_empty():
+                        other_camera_frame: CapturedFrame = \
+                            ai_queue.dequeue("AI Queue {}".format(index + 1))
+                        if other_camera_frame is not None:
+                            if other_camera_frame.timestamp >= timestamp_stopper:
+                                del other_camera_frame
+                                break
+                        else:
+                            print("Detector - poison pill detected - exiting...")
+                            return False
+            else:
+                while True:
+                    if not ai_queue.is_empty():
+                        active_camera_frame: CapturedFrame = \
+                            ai_queue.dequeue("AI Queue {}".format(index + 1))
+                        if active_camera_frame is not None:
+                            if active_camera_frame.timestamp >= timestamp_stopper:
+                                self.video_queue.enqueue(active_camera_frame, "Video Queue")
+                                del active_camera_frame
+                                break
+                        else:
+                            print("Detector - poison pill detected - exiting...")
+                            return False
+
+        return True

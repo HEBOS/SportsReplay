@@ -113,7 +113,7 @@ def run_main():
                           "! h264parse " \
                           "! omxh264dec " \
                           "! nvvidconv " \
-                          "! video/x-raw,format=RGBA,width={width},height={height},framerate={fps}/1 " \
+                          "! video/x-raw(memory: NVMM),format=RGBA,width={width},height={height},framerate={fps}/1 " \
                           "! videoconvert " \
                           "! appsink".format(location=os.path.normpath(r"{}".format(v)),
                                              fps=fps,

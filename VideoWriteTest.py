@@ -33,10 +33,10 @@ class VideoWriteTest(object):
                                                                                              time.time()))
         output_pipeline = "appsrc " \
                           "! autovideoconvert " \
-                          "! video/x-raw,format=(string)I420,width={width},height={height},framerate={fps}/1 " \
-                          "! omxh264enc ! video/x-h264,stream-format=(string)byte-stream " \
+                          "! video/x-raw(memory: NVMM),width={width},height={height},framerate={fps}/1 " \
+                          "! omxh264enc ! video/x-h264(memory: NVMM),stream-format=(string)byte-stream " \
                           "! h264parse " \
-                          "! qtmux " \
+                          "! matroskamux " \
                           "! filesink location={video}.avi".format(width=width,
                                                                    height=height,
                                                                    fps=fps,
