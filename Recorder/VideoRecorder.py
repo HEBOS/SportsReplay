@@ -56,12 +56,9 @@ class VideoRecorder(object):
         print("Expected start {}. Started at {}".format(self.camera.start_of_capture, time.time()))
 
         try:
-            self.capture = cv2.VideoCapture(self.camera.source)
-            self.capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera.width)
-            self.capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera.height)
-            self.capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
-            self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
+            self.capture = cv2.VideoCapture(self.camera.source, cv2.CAP_GSTREAMER)
+            #self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            #self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
             snapshot_time = time.time()
             frame_number = 0
 

@@ -82,12 +82,15 @@ class Detector(object):
                         for captured_frame in candidate_frames:
                             if captured_frame is not None:
 
-                                cv2.imwrite(captured_frame.filePath, captured_frame.frame)
-                                image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
-                                captured_frame.remove_file()
+                                #cv2.imwrite(captured_frame.filePath, captured_frame.frame)
+                                #image, width, height = jetson.utils.loadImageRGBA(captured_frame.filePath)
+                                #captured_frame.remove_file()
+
+                                rgba = cv2.cvtColor(captured_frame.frame, cv2.COLOR_RGB2RGBA)
+                                image = jetson.utils.cudaFromNumpy(rgba)
 
                                 # Run the AI detection, based on class id
-                                detections = net.Detect(image, width, height)
+                                detections = net.Detect(image, 1280, 720)
 
                                 jetson.utils.cudaDeviceSynchronize()
                                 del image
