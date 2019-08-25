@@ -10,11 +10,10 @@ from Shared.SharedFunctions import SharedFunctions
 class VideoWriteTest(object):
     def __init__(self):
         config = Configuration()
-
-        sample_directory = os.path.normpath(r"{}/ActivityDetector/SampleImages".format(os.getcwd()))
-        samples = [os.path.normpath(r"{}/{}".format(sample_directory, fi))
-                   for fi in os.listdir(sample_directory)
-                   if os.path.isfile(os.path.join(sample_directory, fi)) and fi.lower().endswith(".jpg")]
+        fps = int(config.recorder["fps"])
+        width = int(config.recorder["width"])
+        height = int(config.recorder["height"])
+        video_addresses = str(config.recorder["video"]).split(",")
 
         # Ensure that root directory exists
         dump_path = os.path.normpath(r"{}".format(config.common["dump-path"]))
@@ -24,46 +23,54 @@ class VideoWriteTest(object):
         video_making_path = os.path.join(dump_path, config.video_maker["video-making-path"])
         SharedFunctions.ensure_directory_exists(video_making_path)
 
-        fps = int(config.recorder["fps"])
-        width = int(config.recorder["width"])
-        height = int(config.recorder["height"])
-        output_video_file = os.path.join(video_making_path, SharedFunctions.get_output_video(video_making_path,
-                                                                                             1,
-                                                                                             1,
-                                                                                             time.time()))
+        input_pipeline = "filesrc location={location} " \
+                         "! qtdemux " \
+                         "! h264parse " \
+                         "! omxh264dec " \
+                         "! nvvidconv " \
+                         "! video/x-raw,format=RGBA,width={width},height={height},framerate={fps}/1 " \
+                         "! videoconvert " \
+                         "! appsink".format(location=os.path.normpath(r"{}".format(video_addresses[0])),
+                                            fps=fps,
+                                            width=width,
+                                            height=height)
+
         output_pipeline = "appsrc " \
                           "! autovideoconvert " \
-                          "! video/x-raw(memory: NVMM),width={width},height={height},framerate={fps}/1 " \
-                          "! omxh264enc ! video/x-h264(memory: NVMM),stream-format=(string)byte-stream " \
+                          "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
+                          "! omxh264enc " \
+                          "! video/x-h264,stream-format=byte-stream " \
                           "! h264parse " \
-                          "! matroskamux " \
-                          "! filesink location={video}.avi".format(width=width,
-                                                                   height=height,
-                                                                   fps=fps,
-                                                                   video=output_video_file)
-
+                          "! qtmux " \
+                          "! filesink location={video}".format(width=width,
+                                                               height=height,
+                                                               fps=fps,
+                                                               video="output.mp4v")
+        print("VideoCapture:")
+        print("-----------------------------------------------------------------------------------------------")
+        print(input_pipeline)
+        capture = cv2.VideoCapture(input_pipeline, cv2.CAP_GSTREAMER)
+        print("")
+        print("")
+        print("VideoWriter:")
         print(output_pipeline)
-        out = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'X264'), fps, (width, height))
+        print("-----------------------------------------------------------------------------------------------")
+        writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'MP4V'), fps, (width, height), True)
+
         started_at = time.time()
-        rendered_images = 0
-        for r in range(0, 100):
-            for im in samples:
-                sample_image = cv2.imread(im)
-                out.write(sample_image)
+        simg = cv2.imread("/home/sportsreplay/GitHub/sports-replay-hrvoje/ActivityDetector/SampleImages/frame_1564827634_0001.jpg")
+        for i in range(0, 500):
+            grabbed, img = capture.read()
+            if grabbed:
+                cv2.waitKey(1)
+                rgba = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+                writer.write(img)
+                cv2.imwrite("output.jpg", rgba)
 
-                del sample_image
-                if rendered_images % fps == 0:
-                    gc.collect()
-                    print("Rendered {} second".format(int(rendered_images / fps) + 1))
-
-                rendered_images += 1
-                if rendered_images == 749:
-                    break
-            if rendered_images == 749:
-                break
+        capture.release()
+        writer.release()
 
         print("For 30 secs of video, at {} fps, it took {} secs to complete.".format(fps, time.time() - started_at))
-        out.release()
         self.clear_cv_from_memory()
         gc.collect()
 

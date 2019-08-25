@@ -110,17 +110,16 @@ def run_main():
         if ".mp4" in v:
             source_path = "filesrc location={location} " \
                           "! qtdemux " \
+                          "! queue " \
                           "! h264parse " \
                           "! omxh264dec " \
                           "! nvvidconv " \
-                          "! video/x-raw(memory: NVMM),format=RGBA,width={width},height={height},framerate={fps}/1 " \
+                          "! video/x-raw(memory: NVMM),format=(string)RGBA,width={width},height={height},framerate={fps}/1 " \
                           "! videoconvert " \
                           "! appsink".format(location=os.path.normpath(r"{}".format(v)),
                                              fps=fps,
                                              width=width,
                                              height=height)
-
-        # " ! nvjpegenc ! image/jpeg,format=RGB " \
 
         # Ensure directory for particular camera exists
         camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
