@@ -3,6 +3,7 @@ import os
 import time
 import cv2
 import gc
+import jetson.utils
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 
@@ -63,9 +64,7 @@ class VideoWriteTest(object):
             grabbed, img = capture.read()
             if grabbed:
                 cv2.waitKey(1)
-                rgba = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
                 writer.write(img)
-                cv2.imwrite("output.jpg", rgba)
 
         capture.release()
         writer.release()

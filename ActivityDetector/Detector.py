@@ -20,21 +20,21 @@ class Detector(object):
         self.network = network
         self.threshold = threshold
         self.video_queue = video_queue
-
+        self.detecting = False
         # Logger
         self.logger = LogHandler("detector")
 
+
     def detect(self):
-        detecting = True
+        self.detecting = True
+
         # load the object detection network
         net = jetson.inference.detectNet(self.network,
                                          [],
                                          float(self.threshold))
-
-        #time.sleep(30)
         try:
             active_camera = 1
-            while detecting:
+            while self.detecting:
                 # Determine queue of active camera
                 active_camera_queue: MultiProcessingQueue = self.ai_queues[active_camera - 1]
 
@@ -54,11 +54,11 @@ class Detector(object):
                                     del captured_frame
 
                         print("Detector - break after active camera frame is None.")
+                        self.detecting = False
                         break
 
                     # If we have found the candidate that needs AI detection, we put it in the detection list
                     if active_camera_frame.detect_candidate:
-                        start_time = time.time()
                         candidate_frames = [active_camera_frame]
 
                         # Also, we are dequeuing frames from all other queues, so that we find the same point in time,
@@ -75,7 +75,7 @@ class Detector(object):
                                                 break
                                         else:
                                             print("Detector - poison pill detected - exiting...")
-                                            detecting = False
+                                            self.detecting = False
                                             break
 
                         # Now that we have all frames that represent exact time when that situation took place,
@@ -83,14 +83,17 @@ class Detector(object):
                         for captured_frame in candidate_frames:
                             if captured_frame is not None:
 
+                                start_time = time.time()
+                                rgba = cv2.cvtColor(captured_frame.frame, cv2.COLOR_RGB2RGBA)
+                                image = jetson.utils.cudaFromNumpy(rgba)
+
                                 # Before detection starts, we push frames from active camera to video queue, and
                                 # discard frames from other cameras, to resolve the problem with detection letancy
                                 timestamp_stopper = active_camera_frame.get_future_timestamp(
-                                    int(1 / active_camera_frame.camera.cdfps * active_camera_frame.camera.cdfps))
-                                self.forward_frames(timestamp_stopper, active_camera)
+                                    int((1 / active_camera_frame.camera.cdfps * active_camera_frame.camera.fps) * 1.6))
+                                self.video_queue.enqueue(active_camera_frame, "Video Queue")
+                                self.forward_frames(timestamp_stopper, int(active_camera))
 
-                                rgba = cv2.cvtColor(captured_frame.frame, cv2.COLOR_RGB2RGBA)
-                                image = jetson.utils.cudaFromNumpy(rgba)
                                 # Run the AI detection, based on class id
                                 detections = net.Detect(image, 1280, 720)
                                 jetson.utils.cudaDeviceSynchronize()
@@ -113,17 +116,32 @@ class Detector(object):
 
                                 # Save largest ball size information on captured frame
                                 captured_frame.largest_ball_size = self.get_largest_ball_size(balls)
+                                print("Detection took = {}".format(time.time() - start_time))
 
                         # Determine the active camera
                         active_camera, active_camera_capture_frame = self.determine_active_camera(candidate_frames,
                                                                                                   active_camera)
+                        print("Active camera = {}".format(active_camera))
+
                         # Pass the active camera frame to Video Creator
                         self.video_queue.enqueue(active_camera_capture_frame, "Video Queue")
                         del active_camera_capture_frame
-
-                        print("Detection took = {}".format(time.time() - start_time))
                     else:
                         self.video_queue.enqueue(active_camera_frame, "Video Queue")
+                        # We are removing frames from all other cameras too
+                        for index, ai_queue in enumerate(self.ai_queues):
+                            if index != active_camera - 1:
+                                while True:
+                                    if not ai_queue.is_empty():
+                                        other_camera_frame: CapturedFrame = \
+                                            ai_queue.dequeue("AI Queue {}".format(index + 1))
+                                        if other_camera_frame is not None:
+                                            if other_camera_frame.timestamp >= active_camera_frame.timestamp:
+                                                break
+                                        else:
+                                            print("Detector - poison pill detected - exiting...")
+                                            self.detecting = False
+                                            break
 
             print("Detector - normal exit.")
         except Exception as ex:
@@ -163,26 +181,28 @@ class Detector(object):
         print("Fast forwarding to {}".format(timestamp_stopper))
         for index, ai_queue in enumerate(self.ai_queues):
             if index != active_camera - 1:
-                while True:
+                while self.detecting:
                     if not ai_queue.is_empty():
                         other_camera_frame: CapturedFrame = \
                             ai_queue.dequeue("AI Queue {}".format(index + 1))
                         if other_camera_frame is not None:
-                            if other_camera_frame.timestamp >= timestamp_stopper:
+                            if other_camera_frame.timestamp < timestamp_stopper:
                                 del other_camera_frame
+                            else:
                                 break
                         else:
                             print("Detector - poison pill detected - exiting...")
                             return False
             else:
-                while True:
+                while self.detecting:
                     if not ai_queue.is_empty():
                         active_camera_frame: CapturedFrame = \
                             ai_queue.dequeue("AI Queue {}".format(index + 1))
                         if active_camera_frame is not None:
-                            if active_camera_frame.timestamp >= timestamp_stopper:
+                            if active_camera_frame.timestamp < timestamp_stopper:
                                 self.video_queue.enqueue(active_camera_frame, "Video Queue")
                                 del active_camera_frame
+                            else:
                                 break
                         else:
                             print("Detector - poison pill detected - exiting...")

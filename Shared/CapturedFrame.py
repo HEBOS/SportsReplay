@@ -3,7 +3,6 @@ import time
 import os
 import Shared.Camera as Camera
 import numpy
-import gc
 
 
 class CapturedFrame(object):
@@ -25,8 +24,6 @@ class CapturedFrame(object):
 
     def release(self):
         del self.frame
-        if self.frame_number % (self.camera.fps * 2) == 0:
-            gc.collect()
 
     def get_future_timestamp(self, frames_to_add: int):
         return int(self.snapshot_time) + int(frames_to_add / self.camera.fps) + \

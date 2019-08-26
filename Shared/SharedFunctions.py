@@ -19,7 +19,7 @@ class SharedFunctions(object):
     @staticmethod
     def get_output_video(root_path: str, building: int, playground: int, current_time: float):
         return os.path\
-            .normpath(r"{path}/{building}-{playground}-{timestamp}.mp4"
+            .normpath(r"{path}/{building}-{playground}-{timestamp}.mp4v"
                       .format(path=root_path,
                               building=str(building).zfill(5),
                               playground=str(playground).zfill(3),
