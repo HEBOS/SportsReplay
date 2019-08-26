@@ -122,10 +122,6 @@ class Detector(object):
                         active_camera, active_camera_capture_frame = self.determine_active_camera(candidate_frames,
                                                                                                   active_camera)
                         print("Active camera = {}".format(active_camera))
-
-                        # Pass the active camera frame to Video Creator
-                        self.video_queue.enqueue(active_camera_capture_frame, "Video Queue")
-                        del active_camera_capture_frame
                     else:
                         self.video_queue.enqueue(active_camera_frame, "Video Queue")
                         # We are removing frames from all other cameras too
