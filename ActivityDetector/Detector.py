@@ -89,8 +89,8 @@ class Detector(object):
 
                                 # Before detection starts, we push frames from active camera to video queue, and
                                 # discard frames from other cameras, to resolve the problem with detection letancy
-                                timestamp_stopper = active_camera_frame.get_future_timestamp(
-                                    int((1 / active_camera_frame.camera.cdfps * active_camera_frame.camera.fps) * 1.6))
+                                timestamp_stopper = \
+                                    active_camera_frame.get_future_timestamp(active_camera_frame.camera.fps)
                                 self.video_queue.enqueue(active_camera_frame, "Video Queue")
                                 self.forward_frames(timestamp_stopper, int(active_camera))
 
@@ -175,6 +175,7 @@ class Detector(object):
 
     def forward_frames(self, timestamp_stopper: float, active_camera: int) -> bool:
         print("Fast forwarding to {}".format(timestamp_stopper))
+        start_time = time.time()
         for index, ai_queue in enumerate(self.ai_queues):
             if index != active_camera - 1:
                 while self.detecting:
@@ -188,7 +189,7 @@ class Detector(object):
                                 break
                         else:
                             print("Detector - poison pill detected - exiting...")
-                            return False
+                            self.detecting = False
             else:
                 while self.detecting:
                     if not ai_queue.is_empty():
@@ -202,6 +203,6 @@ class Detector(object):
                                 break
                         else:
                             print("Detector - poison pill detected - exiting...")
-                            return False
+                            self.detecting = False
 
-        return True
+        print("Fast forwarding took = {}".format(time.time() - start_time))
