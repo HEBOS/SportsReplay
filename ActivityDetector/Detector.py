@@ -57,11 +57,12 @@ class Detector(object):
                         break
 
                     start_time = time.time()
-                    rgba = cv2.cvtColor(captured_frame.frame, cv2.COLOR_RGB2RGBA)
+                    size = (480, 272)
+                    rgba = cv2.cvtColor(cv2.resize(captured_frame.frame, size), cv2.COLOR_RGB2RGBA)
                     image = jetson.utils.cudaFromNumpy(rgba)
 
                     # Run the AI detection, based on class id
-                    detections = net.Detect(image, 1280, 720)
+                    detections = net.Detect(image, size[0], size[1])
                     jetson.utils.cudaDeviceSynchronize()
                     del image
 
