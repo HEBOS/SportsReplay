@@ -50,8 +50,6 @@ class VideoRecorder(object):
             snapshot_time = time.time()
             frame_number = 0
 
-            frames_to_skip = self.camera.frames_to_skip
-
             while (time.time() < self.camera.end_of_capture) and self.capturing:
                 with self.capture_lock:
                     if not self.capturing:
@@ -61,49 +59,43 @@ class VideoRecorder(object):
                 while time.time() - snapshot_time <= 1 / self.camera.fps:
                     pass
 
-                # Delay video capturing, if that's what's requested
-                if frames_to_skip > 0:
-                    capture.grab()
-                    frames_to_skip -= 1
+                frame_number += 1
+                if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
+                    frame_number = 1
+
+                snapshot_time = time.time()
+
+                # Grab the next frame. Used for more precise results.
+                grabbed = capture.grab()
+
+                # Check if there is a message from Detector that active camera change has happen
+                try:
+                    if self.detection_connection.poll():
+                        new_active_camera_id = self.detection_connection.recv()
+                        self.active_camera_id = new_active_camera_id
+                finally:
                     pass
-                else:
-                    frame_number += 1
-                    if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
-                        frame_number = 1
 
-                    snapshot_time = time.time()
+                # Determine if the frame is a detection candidate.
+                detection_candidate = frame_number % self.detection_frequency == 1
 
-                    # Grab the next frame. Used for more precise results.
-                    grabbed = capture.grab()
+                if grabbed:
+                    if detection_candidate or self.active_camera_id == self.camera.id:
+                        ref, frame = capture.retrieve(flag=0)
 
-                    # Check if there is a message from Detector that active camera change has happen
-                    try:
-                        if self.detection_connection.poll():
-                            new_active_camera_id = self.detection_connection.recv()
-                            self.active_camera_id = new_active_camera_id
-                    finally:
-                        pass
+                        # If this is the recorder for the active camera, we push the frame into video stream
+                        if self.active_camera_id == self.camera.id:
+                            self.video_queue.enqueue(frame, "Video Queue")
 
-                    # Determine if the frame is a detection candidate.
-                    detection_candidate = frame_number % self.detection_frequency == 1
-
-                    if grabbed:
-                        if detection_candidate or self.active_camera_id == self.camera.id:
-                            ref, frame = capture.retrieve(flag=0)
-
-                            # If this is the recorder for the active camera, we push the frame into video stream
-                            if self.active_camera_id == self.camera.id:
-                                self.video_queue.enqueue(frame, "Video Queue")
-
-                            # Detection candidate should be handled by Detector, that will send an active camera change
-                            # message, short time after, so that a correct instance of VideoRecorder can take over
-                            # the camera activity
-                            if detection_candidate:
-                                captured_frame = CapturedFrame(self.camera,
-                                                               frame_number,
-                                                               snapshot_time,
-                                                               frame)
-                                self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
+                        # Detection candidate should be handled by Detector, that will send an active camera change
+                        # message, short time after, so that a correct instance of VideoRecorder can take over
+                        # the camera activity
+                        if detection_candidate:
+                            captured_frame = CapturedFrame(self.camera,
+                                                           frame_number,
+                                                           snapshot_time,
+                                                           frame)
+                            self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
 
         except cv2.error as e:
             self.capturing = False

@@ -65,9 +65,6 @@ class Record(object):
         streaming_path = os.path.join(dump_path, config.video_maker["streaming-path"])
         SharedFunctions.ensure_directory_exists(streaming_path)
 
-        # This is for the testing purposes only, and required when video source are the files, not cameras
-        frames_to_skip = str(config.recorder["frames-to-skip"]).split(",")
-
         ai_queue = MultiProcessingQueue(maxsize=10)
         video_queue = MultiProcessingQueue(maxsize=100)
         processes = []
@@ -86,9 +83,6 @@ class Record(object):
         network = config.activity_detector["network"]
         threshold = config.activity_detector["threshold"]
 
-        # Add skip frames information to the ending time
-        end_of_capture += int(min(int(i) for i in frames_to_skip) / fps)
-
         # Ensure session directory exists
         session_path = SharedFunctions.get_recording_path(recording_path, building, playground, start_of_capture)
         SharedFunctions.ensure_directory_exists(session_path)
@@ -105,11 +99,6 @@ class Record(object):
 
         for v in video_addresses:
             i += 1
-
-            # Ensure video_delays array is initialised
-            if len(frames_to_skip) != i:
-                frames_to_skip.append("0")
-
             source_path = v
 
             # If video source is not camera, but mp4 file, fix the path
@@ -127,6 +116,8 @@ class Record(object):
                                                  width=width,
                                                  height=height)
 
+                print(source_path)
+
             # Ensure directory for particular camera exists
             camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
             SharedFunctions.ensure_directory_exists(camera_path)
@@ -135,8 +126,7 @@ class Record(object):
             recorders_out_pipes.append(recorder_pipe_out)
 
             camera = Camera(i, source_path, fps, cdfps, width, height,
-                            client, building, playground, camera_path, start_of_capture, end_of_capture,
-                            int(frames_to_skip[i - 1]))
+                            client, building, playground, camera_path, start_of_capture, end_of_capture)
             cameras.append(camera)
 
             processes.append(mp.Process(target=self.start_single_camera,
@@ -196,7 +186,7 @@ class Record(object):
         except:
             # Remove the whole session directory
             print("Directory {} has been removed, due to errors.".format(session_path))
-            shutil.rmtree(session_path)
+            #shutil.rmtree(session_path)
 
     def dispatch_detection_messages(self, detection_connection: mp.connection.Connection,
                                     recorders_connections: List[mp.connection.Connection]):

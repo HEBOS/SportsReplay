@@ -3,5 +3,6 @@ numpy==1.17.0
 psutil==5.6.3
 pympler==0.7
 mem_top==0.1.6
+jsonpickle==1.2
 # Run the following command to be able to run QueueImageTest2
 #    sudo apt-get install graphviz

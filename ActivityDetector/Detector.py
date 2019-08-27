@@ -6,6 +6,7 @@ import cv2
 import multiprocessing as mp
 import time
 import json
+import jsonpickle
 from typing import List
 from Shared.LogHandler import LogHandler
 from Shared.CapturedFrame import CapturedFrame
@@ -75,30 +76,33 @@ class Detector(object):
                                                    detection.Width,
                                                    detection.Height,
                                                    detection.Confidence,
-                                                   detection.Instance))
-
-                    del detections
+                                                   detection.Instance,
+                                                   captured_frame.camera.id))
 
                     # Save largest ball size information on captured frame
                     detected_largest_ball_size = self.get_largest_ball_size(balls)
                     print("Detection took = {}".format(time.time() - start_time))
-                    print("Detection details {}".format(json.dumps(detections)))
 
-                    # We declare the above camera as an active one if all other cameras have smaller ball,
-                    # but we check
-                    # the last time we were checking
-                    if Linq(self.cameras).all(lambda c: c != captured_frame.camera.id and
-                                              c.largest_ball_size < detected_largest_ball_size) and \
-                            time.time() - self.active_camera.last_detection >= 1:
-                        self.active_camera = self.cameras[captured_frame.camera.id - 1]
-                        # Send message, which will be received by Recorder,
-                        # and dispatched to all VideoRecorder instances
-                        self.detection_connection.send(self.active_camera.id)
+                    if len(balls) > 0:
+                        print("Detection details {}".format(jsonpickle.encode(balls)))
 
-                    # We need to save the results of detection in our camera
-                    camera = self.cameras[captured_frame.camera.id - 1]
-                    camera.largest_ball_size = detected_largest_ball_size
-                    camera.last_detection = time.time()
+                    del detections
+
+                    if len(balls) > 0 and time.time() - self.active_camera.last_detection > 1:
+                        # We declare the above camera as an active one if all other cameras have smaller ball,
+                        # but we check
+                        # the last time we were checking
+                        if Linq(self.cameras).all(lambda c: c != captured_frame.camera.id and
+                                                  c.largest_ball_size < detected_largest_ball_size):
+                            self.active_camera = self.cameras[captured_frame.camera.id - 1]
+                            # Send message, which will be received by Recorder,
+                            # and dispatched to all VideoRecorder instances
+                            self.detection_connection.send(self.active_camera.id)
+
+                        # We need to save the results of detection in our camera
+                        camera = self.cameras[captured_frame.camera.id - 1]
+                        camera.largest_ball_size = detected_largest_ball_size
+                        camera.last_detection = time.time()
 
             print("Detector - normal exit.")
         except Exception as ex:

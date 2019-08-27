@@ -4,8 +4,7 @@ import time
 
 class Camera(object):
     def __init__(self, camera_id: int, source: str, fps: int, cdfps: float, width: int, height: int, client: int,
-                 building: int, playground: int, target_path: str, start_of_capture: time, end_of_capture: time,
-                 frames_to_skip: int):
+                 building: int, playground: int, target_path: str, start_of_capture: time, end_of_capture: time):
         self.id = camera_id
         self.source = source
         self.fps = fps
@@ -18,6 +17,5 @@ class Camera(object):
         self.targetPath = target_path
         self.start_of_capture = start_of_capture
         self.end_of_capture = end_of_capture
-        self.frames_to_skip = frames_to_skip
         self.largest_ball_size = 0
         self.last_detection = time.time()

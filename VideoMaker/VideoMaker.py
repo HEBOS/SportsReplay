@@ -32,19 +32,14 @@ class VideoMaker(object):
                                                                fps=self.fps,
                                                                video=self.output_video)
 
-        writer = None
+        writer = cv2.VideoWriter(output_pipeline,
+                                 cv2.VideoWriter_fourcc(*'mp4v'),
+                                 self.fps,
+                                 (self.width, self.height),
+                                 True)
         i = 0
         while True:
             if not self.video_queue.is_empty():
-                # Create writer stream, once there are any frames to write, in order to prevent
-                # GStreamer to close the stream due to the non-activity
-                if writer is None:
-                    writer = cv2.VideoWriter(output_pipeline,
-                                             cv2.VideoWriter_fourcc(*'mp4v'),
-                                             self.fps,
-                                             (self.width, self.height),
-                                             True)
-
                 i += 1
                 frame = self.video_queue.dequeue("Video Queue")
 
