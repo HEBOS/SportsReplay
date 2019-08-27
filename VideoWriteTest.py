@@ -3,6 +3,7 @@ import os
 import time
 import cv2
 import gc
+import queue
 import jetson.utils
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -58,18 +59,27 @@ class VideoWriteTest(object):
         print("-----------------------------------------------------------------------------------------------")
         writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'MP4V'), fps, (width, height), True)
 
+        q = queue.Queue(maxsize=10000)
         started_at = time.time()
-        simg = cv2.imread("/home/sportsreplay/GitHub/sports-replay-hrvoje/ActivityDetector/SampleImages/frame_1564827634_0001.jpg")
-        for i in range(0, 500):
+        while time.time() - started_at < 10:
             grabbed, img = capture.read()
             if grabbed:
                 cv2.waitKey(1)
-                writer.write(img)
+                q.put(img)
+
+        started_at = time.time()
+        i = 0
+        while True:
+            i += 1
+            writer.write(q.get())
+            if i >= 250:
+                break
+
+        print("Write utilisation equals {} fps.".format((time.time() - started_at) / 250))
 
         capture.release()
         writer.release()
 
-        print("For 30 secs of video, at {} fps, it took {} secs to complete.".format(fps, time.time() - started_at))
         self.clear_cv_from_memory()
         gc.collect()
 

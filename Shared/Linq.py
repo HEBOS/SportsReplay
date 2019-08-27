@@ -1,6 +1,7 @@
 """
 LINQ analog for Python
 Contact: purin.anton@gmail.com
+Sample usage: https://stackoverflow.com/questions/22377725/python-linq-like-methods/48775263
 """
 __author__ = 'Anton Purin'
 import itertools

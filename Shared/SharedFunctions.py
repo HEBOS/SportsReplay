@@ -26,23 +26,6 @@ class SharedFunctions(object):
                               timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
 
     @staticmethod
-    def get_recording_file_path(path: str, current_time: int, frame_number: int):
-        return os.path.normpath(
-            r"{target_path}/frame_{currentTime}_{frameNumber}.jpg".format(
-                target_path=path,
-                currentTime=current_time,
-                frameNumber=str(frame_number).zfill(4)
-            ))
-
-    @staticmethod
-    def get_recording_file_name(current_time: int, frame_number: int):
-        return os.path.normpath(
-            r"frame_{currentTime}_{frameNumber}.jpg".format(
-                currentTime=current_time,
-                frameNumber=str(frame_number).zfill(4)
-            ))
-
-    @staticmethod
     def get_json_file_path(file_path: str):
         return file_path.replace(".jpg", ".json")
 

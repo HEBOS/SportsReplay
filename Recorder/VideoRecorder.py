@@ -1,6 +1,8 @@
 import threading
 import time
+import multiprocessing as mp
 import logging
+import os
 import math
 import cv2
 from Shared.LogHandler import LogHandler
@@ -11,70 +13,57 @@ from Shared.MultiProcessingQueue import MultiProcessingQueue
 
 
 class VideoRecorder(object):
-    def __init__(self, camera: Camera, ai_queue: MultiProcessingQueue):
+    def __init__(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
+                 detection_connection: mp.connection.Connection):
+        #os.sched_setaffinity(0, {2, 3})
         self.camera = camera
         self.ai_queue = ai_queue
+        self.video_queue = video_queue
+        self.detection_connection = detection_connection
+        self.detection_frequency = math.floor(camera.fps / camera.cdfps)
+
+        # We asume that the active camera is 1
+        self.active_camera_id = 1
 
         # Logger
         self.logger = LogHandler("recording")
         self.logger.info('Camera {}, on playground {} has started recording.'.format(camera.id, camera.playground))
 
-        # Capturing support
-        self.capture_lock = threading.Lock()
-        self.capture = None
         self.capturing = False
-        self.capture_thread = None
-
-        self.detection_frequency = math.floor(camera.fps / camera.cdfps)
-
+        self.capture_lock = threading.Lock()
+        
     def start(self):
-        try:
-            with self.capture_lock:
-                self.capturing = True
-            self.capture_thread = threading.Thread(target=self.record, args=())
-            self.capture_thread.start()
+        self.capturing = True
 
-            while (time.time() < self.camera.end_of_capture) and self.capturing:
-                time.sleep(1)
-        except Exception as ex:
-            print(ex)
-            self.logger.error("Camera {}, on playground {} is not responding."
-                              .format(self.camera.id, self.camera.playground))
-
-        finally:
-            with self.capture_lock:
-                self.capturing = False
-            self.capture_thread.join()
-
-            SharedFunctions.release_open_cv()
-            print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
-
-    def record(self):
         # Sync the start with other cameras, so they start at the same time
         while self.camera.start_of_capture > time.time():
             time.sleep(.010)
         print("Expected start {}. Started at {}".format(self.camera.start_of_capture, time.time()))
 
         try:
-            self.capture = cv2.VideoCapture(self.camera.source, cv2.CAP_GSTREAMER)
-            #self.capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            #self.capture.set(cv2.CAP_PROP_EXPOSURE, -8)
+            capture = cv2.VideoCapture(self.camera.source, cv2.CAP_GSTREAMER)
+            #capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera.width)
+            #capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera.height)
+            #capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
+            #capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+            #capture.set(cv2.CAP_PROP_EXPOSURE, -8)
             snapshot_time = time.time()
             frame_number = 0
 
             frames_to_skip = self.camera.frames_to_skip
 
-            while True:
+            while (time.time() < self.camera.end_of_capture) and self.capturing:
                 with self.capture_lock:
                     if not self.capturing:
                         break
+
                 # Wait for the next time trigger
                 while time.time() - snapshot_time <= 1 / self.camera.fps:
                     pass
 
                 # Delay video capturing, if that's what's requested
                 if frames_to_skip > 0:
-                    self.capture.grab()
+                    capture.grab()
                     frames_to_skip -= 1
                     pass
                 else:
@@ -84,44 +73,52 @@ class VideoRecorder(object):
 
                     snapshot_time = time.time()
 
-                    grabbed = self.capture.grab()
+                    # Grab the next frame. Used for more precise results.
+                    grabbed = capture.grab()
+
+                    # Check if there is a message from Detector that active camera change has happen
+                    try:
+                        if self.detection_connection.poll():
+                            new_active_camera_id = self.detection_connection.recv()
+                            self.active_camera_id = new_active_camera_id
+                    finally:
+                        pass
+
+                    # Determine if the frame is a detection candidate.
+                    detection_candidate = frame_number % self.detection_frequency == 1
+
                     if grabbed:
-                        # Get the file path that will be used for the frame
-                        file_path = SharedFunctions.get_recording_file_path(
-                            self.camera.targetPath,
-                            int(snapshot_time),
-                            frame_number
-                        )
-                        filename = SharedFunctions.get_recording_file_name(int(snapshot_time),
-                                                                           frame_number)
-                        ref, frame = self.capture.retrieve(flag=0)
+                        if detection_candidate or self.active_camera_id == self.camera.id:
+                            ref, frame = capture.retrieve(flag=0)
 
-                        captured_frame = CapturedFrame(self.camera,
-                                                       file_path,
-                                                       filename,
-                                                       frame_number,
-                                                       snapshot_time,
-                                                       frame_number % self.detection_frequency == 1,
-                                                       frame)
+                            # If this is the recorder for the active camera, we push the frame into video stream
+                            if self.active_camera_id == self.camera.id:
+                                self.video_queue.enqueue(frame, "Video Queue")
 
-                        self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
+                            # Detection candidate should be handled by Detector, that will send an active camera change
+                            # message, short time after, so that a correct instance of VideoRecorder can take over
+                            # the camera activity
+                            if detection_candidate:
+                                captured_frame = CapturedFrame(self.camera,
+                                                               frame_number,
+                                                               snapshot_time,
+                                                               frame)
+                                self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
+
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera.id, self.camera.playground))
         finally:
             self.ai_queue.mark_as_done()
+            self.video_queue.mark_as_done()
+
             print("Camera {}, on playground {} finished recording."
                   .format(self.camera.id, self.camera.playground))
+            SharedFunctions.release_open_cv()
+            print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
 
     def cv2error(self):
         self.logger.error("Camera {}, on playground {} is not responding."
                           .format(self.camera.id, self.camera.playground))
 
-    def clear_cv_from_memory(self):
-        if self.capture is not None:
-            self.capture.release()
-        cv2.waitKey(1)
-        cv2.destroyAllWindows()
-        for i in range(1, 5):
-            cv2.waitKey(1)

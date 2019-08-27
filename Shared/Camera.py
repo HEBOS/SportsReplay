@@ -19,3 +19,5 @@ class Camera(object):
         self.start_of_capture = start_of_capture
         self.end_of_capture = end_of_capture
         self.frames_to_skip = frames_to_skip
+        self.largest_ball_size = 0
+        self.last_detection = time.time()
