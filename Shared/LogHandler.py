@@ -35,13 +35,13 @@ class LogHandler(object):
 
     def warning(self, message):
         print(message)
-        # self.logger.warning(message)
+        self.logger.warning(message)
 
     def error(self, message):
         print(message)
-        # self.logger.error(message)
+        self.logger.error(message)
 
     def info(self, message):
         print(message)
-        # self.logger.info(message)
+        self.logger.info(message)
 

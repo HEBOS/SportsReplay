@@ -26,7 +26,7 @@ class VideoRecorder(object):
         self.active_camera_id = 1
 
         # Logger
-        self.logger = LogHandler("recording")
+        self.logger = LogHandler("recording-camera-{}".format(camera.id))
         self.logger.info('Camera {}, on playground {} has started recording.'.format(camera.id, camera.playground))
 
         self.capturing = False
@@ -104,6 +104,7 @@ class VideoRecorder(object):
         finally:
             self.ai_queue.mark_as_done()
             self.video_queue.mark_as_done()
+            self.detection_connection.close()
 
             print("Camera {}, on playground {} finished recording."
                   .format(self.camera.id, self.camera.playground))

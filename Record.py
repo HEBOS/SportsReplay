@@ -4,6 +4,7 @@ import time
 import os
 import shutil
 import threading
+import json
 from typing import List
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -12,7 +13,7 @@ from ActivityDetector.Detector import Detector
 from Shared.Camera import Camera
 from VideoMaker.VideoMaker import VideoMaker
 from Shared.MultiProcessingQueue import MultiProcessingQueue
-
+from Shared.SquareGraph import SquareGraph
 
 class Record(object):
     def __init__(self):
@@ -28,10 +29,11 @@ class Record(object):
     def start_activity_detection(self, playground: int, ai_queue: MultiProcessingQueue,
                                  video_queue: MultiProcessingQueue, class_id: int,
                                  network: str, threshold: float, width: int, height: int,
-                                 detection_connection: mp.connection.Connection, cameras: List[Camera]):
+                                 detection_connection: mp.connection.Connection, cameras: List[Camera],
+                                 detection_exclussion_graphs: List[SquareGraph]):
 
         detector = Detector(playground, ai_queue, video_queue, class_id, network, threshold, width, height,
-                            cameras, detection_connection)
+                            cameras, detection_connection, detection_exclussion_graphs)
 
         detector.start()
 
@@ -82,6 +84,8 @@ class Record(object):
                                                 config.activity_detector["sports-ball"])
         network = config.activity_detector["network"]
         threshold = config.activity_detector["threshold"]
+        excluded_coordinates = json.loads(config.activity_detector["exclude-coordinates"])
+        detection_exclussion_graphs = SquareGraph.get_graphs(excluded_coordinates)
 
         # Ensure session directory exists
         session_path = SharedFunctions.get_recording_path(recording_path, building, playground, start_of_capture)
@@ -92,8 +96,6 @@ class Record(object):
         # Define pipes
         recorders_out_pipes = []
         detection_pipe_in, detection_pipe_out = mp.Pipe(duplex=False)
-
-        detection_pipe_in.poll()
 
         cameras = []
 
@@ -138,7 +140,7 @@ class Record(object):
 
         processes.append(mp.Process(target=self.start_activity_detection,
                                     args=(playground, ai_queue, video_queue, class_id, network, threshold,
-                                          width, height, detection_pipe_out, cameras)))
+                                          width, height, detection_pipe_out, cameras, detection_exclussion_graphs)))
 
         processes.append(mp.Process(target=self.start_video_making,
                                     args=(playground, video_queue, output_video, width, height, fps)))
@@ -205,6 +207,10 @@ class Record(object):
                             c.send(active_camera_id)
             finally:
                 pass
+
+        detection_connection.close()
+        for recorder_connection in recorders_connections:
+            recorder_connection.close()
 
 
 if __name__ == "__main__":
