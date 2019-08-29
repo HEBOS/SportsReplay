@@ -3,6 +3,7 @@ import os
 import time
 import ntpath
 import cv2
+from Shared.Point import Point
 from typing import List
 
 
@@ -39,6 +40,11 @@ class SharedFunctions(object):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
             f.close()
+
+    @staticmethod
+    def read_text_file(file_path: str) -> str:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
 
     @staticmethod
     def create_flag_file(root_path: str):
@@ -78,6 +84,13 @@ class SharedFunctions(object):
         return "{}:{}:{}".format(str(int(hours)).zfill(2),
                                  str(minutes).zfill(2),
                                  str(seconds).zfill(2))
+
+    @staticmethod
+    def get_points_array(points: List[Point]):
+        contours: List[List[int]] = []
+        for p in points:
+            contours.append([p.x, p.y])
+        return contours
 
     @staticmethod
     def release_open_cv():

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 import time
+from Shared.Point import Point
+from Shared.SharedFunctions import SharedFunctions
+from Polygon import Polygon
+from typing import List
 
 
 class Detection(object):
@@ -14,9 +18,10 @@ class Detection(object):
         self.height = height
         self.confidence = confidence
         self.instance = instance
-        self.ball_size = self.get_ball_size()
+        self.ball_size = 2 * (self.width + self. height)
         self.recorded_time = time.time()
-
-    def get_ball_size(self) -> int:
-        return 2 * (self.width + self. height)
-
+        points: List[Point] = [Point(self.left, self.top),
+                               Point(self.left, self.bottom),
+                               Point(self.right, self.top),
+                               Point(self.right, self.bottom)]
+        self.polygon = Polygon(SharedFunctions.get_points_array(points))

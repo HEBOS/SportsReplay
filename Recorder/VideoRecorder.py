@@ -85,7 +85,10 @@ class VideoRecorder(object):
 
                         # If this is the recorder for the active camera, we push the frame into video stream
                         if self.active_camera_id == self.camera.id:
-                            self.video_queue.enqueue(frame, "Video Queue")
+                            self.video_queue.enqueue(CapturedFrame(self.camera,
+                                                                   frame_number,
+                                                                   snapshot_time,
+                                                                   frame), "Video Queue")
 
                         # Detection candidate should be handled by Detector, that will send an active camera change
                         # message, short time after, so that a correct instance of VideoRecorder can take over

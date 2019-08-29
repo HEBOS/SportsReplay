@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 import cv2
-import gc
-import os
 from Shared.CapturedFrame import CapturedFrame
 from Shared.SharedFunctions import SharedFunctions
 from Shared.MultiProcessingQueue import MultiProcessingQueue
@@ -41,13 +39,15 @@ class VideoMaker(object):
         while True:
             if not self.video_queue.is_empty():
                 i += 1
-                frame = self.video_queue.dequeue("Video Queue")
+                captured_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
 
-                if frame is None:
+                if captured_frame is None:
                     break
                 else:
-                    writer.write(frame)
-                    del frame
+                    #cv2.putText(captured_frame.frame, str(captured_frame.timestamp),
+                    #            (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 4, (255, 255, 255), 2, cv2.LINE_AA)
+                    writer.write(captured_frame.frame)
+                    del captured_frame.frame
 
                     if i % self.fps == 0:
                         print("Output video: {}. Frames written {}".format(

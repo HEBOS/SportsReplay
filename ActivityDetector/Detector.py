@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 import jetson.inference
 import jetson.utils
-import os
 import cv2
 import multiprocessing as mp
 import time
-import json
 import jsonpickle
 from typing import List
 from Shared.LogHandler import LogHandler
@@ -15,13 +13,14 @@ from Shared.Detection import Detection
 from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.Linq import Linq
 from Shared.SharedFunctions import SharedFunctions
-from Shared.SquareGraph import SquareGraph
+from Shared.IgnoredPolygon import IgnoredPolygon
+
 
 class Detector(object):
     def __init__(self, playground: int, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
                  class_id: int, network: str, threshold: float, width: int, height: int,
                  cameras: List[Camera], detection_connection: mp.connection.Connection,
-                 detection_exclussion_graphs: List[SquareGraph]):
+                 ignored_polygons: List[IgnoredPolygon]):
         #os.sched_setaffinity(0, {0})
         self.playground = playground
         self.ai_queue = ai_queue
@@ -33,10 +32,8 @@ class Detector(object):
         self.height = height
         self.cameras = cameras
         self.detection_connection = detection_connection
-        self.detection_exclussion_graphs = detection_exclussion_graphs
-
+        self.ignored_polygons = ignored_polygons
         self.detecting = False
-
         self.active_camera = cameras[0]
 
         # Logger
@@ -101,8 +98,7 @@ class Detector(object):
                     if len(balls) == 1:
                         ballsizes.append(balls[0])
 
-                    if len(balls) > 0 and detected_largest_ball_size > 8 and \
-                            time.time() - self.active_camera.last_detection >= 0.5:
+                    if len(balls) > 0 and detected_largest_ball_size >= 12:
                         # We declare the above camera as an active one if all other cameras have smaller ball,
                         # but we check
                         # the last time we were checking
@@ -113,27 +109,18 @@ class Detector(object):
                             # and dispatched to all VideoRecorder instances
                             self.detection_connection.send(self.active_camera.id)
                             self.logger.info("Camera {} became active.".format(self.active_camera.id))
+                            # As we have changed the activity of the camera, we need to set
+                            # the size of the ball on all other cameras to zero
+                            for other_camera in self.cameras:
+                                if other_camera.id != self.active_camera.id:
+                                    other_camera.largest_ball_size = 0
 
                         # We need to save the results of detection in our camera
                         camera = self.cameras[captured_frame.camera.id - 1]
                         camera.largest_ball_size = detected_largest_ball_size
                         camera.last_detection = time.time()
 
-            ballsizes_lines = ["height\twidth\tleft\tright\ttop\tbottom\tball size\tconfidence\tcamera\r\n"]
-            for bs in ballsizes:
-                ballsizes_lines.append(
-                    "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\r\n".format(bs.height,
-                                                                    bs.width,
-                                                                    bs.left,
-                                                                    bs.right,
-                                                                    bs.top,
-                                                                    bs.bottom,
-                                                                    bs.ball_size,
-                                                                    bs.confidence,
-                                                                    bs.camera_id)
-                )
-            SharedFunctions.create_list_file(r"/home/sportsreplay/tmp/recording/ballsizes.txt", ballsizes_lines)
-
+            self.log_ballsizes(ballsizes)
             print("Detector - normal exit.")
         except Exception as ex:
             print("ERROR: {}".format(ex))
@@ -148,10 +135,27 @@ class Detector(object):
             print("There are {} balls detected.".format(len(balls)))
 
         for ball in balls:
-            for graph in self.detection_exclussion_graphs:
-                # The ball shouldn't be residing inside DMZ
-                if not graph.contains_ball(ball):
-                    max_size = max(max_size, ball.get_ball_size())
+            for polygon in self.ignored_polygons:
+                # The ball shouldn't be residing inside ignored polygons
+                if not polygon.contains_ball(ball):
+                    max_size = max(max_size, ball.ball_size)
+                else:
+                    print("BALL INSIDE IGNORED POLYGONNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN")
 
         return max_size
 
+    def log_ballsizes(self, ball_sizes: List[Detection]):
+        ballsizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tball size\tconfidence\tcamera\r\n"]
+        for bs in ball_sizes:
+            ballsizes_lines.append(
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\r\n".format(bs.height,
+                                                                bs.width,
+                                                                bs.left,
+                                                                bs.right,
+                                                                bs.top,
+                                                                bs.bottom,
+                                                                bs.ball_size,
+                                                                bs.confidence,
+                                                                bs.camera_id)
+            )
+        SharedFunctions.create_list_file(r"/home/sportsreplay/tmp/recording/ballsizes.txt", ballsizes_lines)

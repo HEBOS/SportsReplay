@@ -13,7 +13,8 @@ from ActivityDetector.Detector import Detector
 from Shared.Camera import Camera
 from VideoMaker.VideoMaker import VideoMaker
 from Shared.MultiProcessingQueue import MultiProcessingQueue
-from Shared.SquareGraph import SquareGraph
+from Shared.IgnoredPolygon import IgnoredPolygon
+
 
 class Record(object):
     def __init__(self):
@@ -30,10 +31,10 @@ class Record(object):
                                  video_queue: MultiProcessingQueue, class_id: int,
                                  network: str, threshold: float, width: int, height: int,
                                  detection_connection: mp.connection.Connection, cameras: List[Camera],
-                                 detection_exclussion_graphs: List[SquareGraph]):
+                                 ignored_polygons: List[IgnoredPolygon]):
 
         detector = Detector(playground, ai_queue, video_queue, class_id, network, threshold, width, height,
-                            cameras, detection_connection, detection_exclussion_graphs)
+                            cameras, detection_connection, ignored_polygons)
 
         detector.start()
 
@@ -84,8 +85,9 @@ class Record(object):
                                                 config.activity_detector["sports-ball"])
         network = config.activity_detector["network"]
         threshold = config.activity_detector["threshold"]
-        excluded_coordinates = json.loads(config.activity_detector["exclude-coordinates"])
-        detection_exclussion_graphs = SquareGraph.get_graphs(excluded_coordinates)
+        ignored_polygons_path = os.path.normpath(r"{}".format(config.activity_detector["ignored-polygons"]))
+        ignored_polygons_json = SharedFunctions.read_text_file(ignored_polygons_path)
+        ignored_polygons: List[IgnoredPolygon] = IgnoredPolygon.get_polygons(ignored_polygons_json)
 
         # Ensure session directory exists
         session_path = SharedFunctions.get_recording_path(recording_path, building, playground, start_of_capture)
@@ -140,7 +142,7 @@ class Record(object):
 
         processes.append(mp.Process(target=self.start_activity_detection,
                                     args=(playground, ai_queue, video_queue, class_id, network, threshold,
-                                          width, height, detection_pipe_out, cameras, detection_exclussion_graphs)))
+                                          width, height, detection_pipe_out, cameras, ignored_polygons)))
 
         processes.append(mp.Process(target=self.start_video_making,
                                     args=(playground, video_queue, output_video, width, height, fps)))
