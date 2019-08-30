@@ -5,17 +5,21 @@ import logging
 import os
 import math
 import cv2
+import numpy as np
+from typing import List
 from Shared.LogHandler import LogHandler
 from Shared.SharedFunctions import SharedFunctions
 from Shared.Camera import Camera
 from Shared.CapturedFrame import CapturedFrame
 from Shared.MultiProcessingQueue import MultiProcessingQueue
+from Shared.IgnoredPolygon import IgnoredPolygon
 
 
 class VideoRecorder(object):
     def __init__(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                 detection_connection: mp.connection.Connection):
+                 detection_connection: mp.connection.Connection, ignored_polygons: List[IgnoredPolygon]):
         #os.sched_setaffinity(0, {2, 3})
+        self.ignored_polygons = ignored_polygons
         self.camera = camera
         self.ai_queue = ai_queue
         self.video_queue = video_queue
@@ -24,6 +28,7 @@ class VideoRecorder(object):
 
         # We asume that the active camera is 1
         self.active_camera_id = 1
+        self.active_detection = None
 
         # Logger
         self.logger = LogHandler("recording-camera-{}".format(camera.id))
@@ -71,8 +76,8 @@ class VideoRecorder(object):
                 # Check if there is a message from Detector that active camera change has happen
                 try:
                     if self.detection_connection.poll():
-                        new_active_camera_id = self.detection_connection.recv()
-                        self.active_camera_id = new_active_camera_id
+                        self.active_detection = self.detection_connection.recv()
+                        self.active_camera_id = self.active_detection.camera_id
                 finally:
                     pass
 
@@ -85,6 +90,9 @@ class VideoRecorder(object):
 
                         # If this is the recorder for the active camera, we push the frame into video stream
                         if self.active_camera_id == self.camera.id:
+                            if self.active_detection is not None:
+                                frame = self.draw_debug_info(frame, int(snapshot_time) + frame_number / 10000)
+
                             self.video_queue.enqueue(CapturedFrame(self.camera,
                                                                    frame_number,
                                                                    snapshot_time,
@@ -113,6 +121,26 @@ class VideoRecorder(object):
                   .format(self.camera.id, self.camera.playground))
             SharedFunctions.release_open_cv()
             print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
+
+    def draw_debug_info(self, img: np.array, frame_info: float):
+        # Draw protected area first
+        for polygon_definition in self.ignored_polygons:
+            if polygon_definition.camera_id == self.camera.id:
+                points = SharedFunctions.get_points_array(polygon_definition.points, 1280 / 480)
+                pts = np.array(points, np.int32)
+                pts = pts.reshape((-1, 1, 2))
+                cv2.polylines(img, [pts], False, (0, 0, 0))
+
+        # Draw last detection
+        if self.active_detection.camera_id == self.active_camera_id:
+            points = SharedFunctions.get_points_array(self.active_detection.points, 1280 / 480)
+            pts = np.array(points, np.int32)
+            pts = pts.reshape((-1, 1, 2))
+            cv2.polylines(img, [pts], False, (52, 158, 190))
+
+        cv2.putText(img, str(frame_info),
+                    (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
+        return img
 
     def cv2error(self):
         self.logger.error("Camera {}, on playground {} is not responding."

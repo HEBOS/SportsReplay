@@ -22,9 +22,9 @@ class Record(object):
         self.dispatch_lock = threading.Lock()
 
     def start_single_camera(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                            detection_connection: mp.connection.Connection):
+                            detection_connection: mp.connection.Connection, ignored_polygons: List[IgnoredPolygon]):
 
-        video = VideoRecorder(camera, ai_queue, video_queue, detection_connection)
+        video = VideoRecorder(camera, ai_queue, video_queue, detection_connection, ignored_polygons)
         video.start()
 
     def start_activity_detection(self, playground: int, ai_queue: MultiProcessingQueue,
@@ -137,7 +137,8 @@ class Record(object):
                                         args=(camera,
                                               ai_queue,
                                               video_queue,
-                                              recorder_pipe_in
+                                              recorder_pipe_in,
+                                              ignored_polygons
                                               )))
 
         processes.append(mp.Process(target=self.start_activity_detection,
@@ -202,11 +203,11 @@ class Record(object):
 
             try:
                 if detection_connection.poll():
-                    new_active_camera_id = detection_connection.recv()
-                    if new_active_camera_id != active_camera_id:
-                        active_camera_id = new_active_camera_id
+                    detection = detection_connection.recv()
+                    if detection.camera_id != active_camera_id:
+                        active_camera_id = detection.camera_id
                         for c in recorders_connections:
-                            c.send(active_camera_id)
+                            c.send(detection)
             finally:
                 pass
 

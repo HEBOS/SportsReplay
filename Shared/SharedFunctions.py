@@ -86,10 +86,10 @@ class SharedFunctions(object):
                                  str(seconds).zfill(2))
 
     @staticmethod
-    def get_points_array(points: List[Point]):
+    def get_points_array(points: List[Point], ratio=1):
         contours: List[List[int]] = []
         for p in points:
-            contours.append([p.x, p.y])
+            contours.append([int(p.x * ratio), int(p.y * ratio)])
         return contours
 
     @staticmethod

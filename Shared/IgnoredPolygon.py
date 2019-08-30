@@ -12,7 +12,7 @@ class IgnoredPolygon(object):
         self.points = points
         self.polygon = Polygon(SharedFunctions.get_points_array(points))
 
-    def contains_ball(self, ball: Detection):
+    def contains_ball(self, ball: Detection) -> bool:
         return self.polygon.overlaps(ball.polygon)
 
     @staticmethod

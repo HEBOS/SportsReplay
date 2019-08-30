@@ -44,8 +44,6 @@ class VideoMaker(object):
                 if captured_frame is None:
                     break
                 else:
-                    #cv2.putText(captured_frame.frame, str(captured_frame.timestamp),
-                    #            (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 4, (255, 255, 255), 2, cv2.LINE_AA)
                     writer.write(captured_frame.frame)
                     del captured_frame.frame
 

@@ -79,10 +79,11 @@ class Detector(object):
                                                    detection.Height,
                                                    detection.Confidence,
                                                    detection.Instance,
-                                                   captured_frame.camera.id))
+                                                   captured_frame.camera.id,
+                                                   int(captured_frame.snapshot_time) + captured_frame.frame_number / 10000))
 
                     # Save largest ball size information on captured frame
-                    detected_largest_ball_size = self.get_largest_ball_size(balls)
+                    detected_largest_ball_size, detection = self.get_largest_ball_size(balls)
                     print("Detection took = {}".format(time.time() - start_time))
 
                     if len(balls) > 0:
@@ -98,7 +99,7 @@ class Detector(object):
                     if len(balls) == 1:
                         ballsizes.append(balls[0])
 
-                    if len(balls) > 0 and detected_largest_ball_size >= 12:
+                    if len(balls) == 1 and balls[0].confidence >= 0.13:
                         # We declare the above camera as an active one if all other cameras have smaller ball,
                         # but we check
                         # the last time we were checking
@@ -107,7 +108,7 @@ class Detector(object):
                             self.active_camera = self.cameras[captured_frame.camera.id - 1]
                             # Send message, which will be received by Recorder,
                             # and dispatched to all VideoRecorder instances
-                            self.detection_connection.send(self.active_camera.id)
+                            self.detection_connection.send(detection)
                             self.logger.info("Camera {} became active.".format(self.active_camera.id))
                             # As we have changed the activity of the camera, we need to set
                             # the size of the ball on all other cameras to zero
@@ -129,33 +130,43 @@ class Detector(object):
             self.detection_connection.close()
             print("Detector finished working.")
 
-    def get_largest_ball_size(self, balls: List[Detection]) -> int:
+    def get_largest_ball_size(self, balls: List[Detection]) -> (int, Detection):
         max_size = 0
+        detection = None
         if len(balls) > 1:
             print("There are {} balls detected.".format(len(balls)))
 
         for ball in balls:
+            ignore_ball = False
             for polygon in self.ignored_polygons:
-                # The ball shouldn't be residing inside ignored polygons
-                if not polygon.contains_ball(ball):
-                    max_size = max(max_size, ball.ball_size)
-                else:
-                    print("BALL INSIDE IGNORED POLYGONNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN")
+                if polygon.camera_id == ball.camera_id and polygon.contains_ball(ball):
+                    ignore_ball = True
+                    break
 
-        return max_size
+            if not ignore_ball:
+                max_size = max(max_size, ball.ball_size)
+                if max_size == ball.ball_size:
+                    detection = ball
+            else:
+                print("BALL INSIDE IGNORED POLYGONNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN")
+
+        return max_size, detection
 
     def log_ballsizes(self, ball_sizes: List[Detection]):
-        ballsizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tball size\tconfidence\tcamera\r\n"]
+        ballsizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tball size\tconfidence"
+                                      "\tcamera\tframe_number\r\n"]
         for bs in ball_sizes:
             ballsizes_lines.append(
-                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\r\n".format(bs.height,
-                                                                bs.width,
-                                                                bs.left,
-                                                                bs.right,
-                                                                bs.top,
-                                                                bs.bottom,
-                                                                bs.ball_size,
-                                                                bs.confidence,
-                                                                bs.camera_id)
+                "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\r\n".format(bs.height,
+                                                                    bs.width,
+                                                                    bs.left,
+                                                                    bs.right,
+                                                                    bs.top,
+                                                                    bs.bottom,
+                                                                    bs.ball_size,
+                                                                    bs.confidence,
+                                                                    bs.camera_id,
+                                                                    bs.frame_number)
+
             )
         SharedFunctions.create_list_file(r"/home/sportsreplay/tmp/recording/ballsizes.txt", ballsizes_lines)
