@@ -83,6 +83,8 @@ class Record(object):
         cdfps = float(config.activity_detector["cdfps"])
         width = int(config.recorder["width"])
         height = int(config.recorder["height"])
+        rtsp_user = config.recorder["rtsp-user"]
+        rtsp_password = config.recorder["rtsp-password"]
         class_id = SharedFunctions.get_class_id(os.path.join(os.getcwd(), config.activity_detector["labels"]),
                                                 config.activity_detector["sports-ball"])
         network = config.activity_detector["network"]
@@ -125,8 +127,21 @@ class Record(object):
                                                  fps=fps,
                                                  width=width,
                                                  height=height)
-
-                print(source_path)
+            else:
+                source_path = "rtspsrc location={location} " \
+                              "latency=200 " \
+                              "! rtph264depay " \
+                              "! h264parse " \
+                              "! omxh264dec " \
+                              "! nvvidconv " \
+                              "! video/x-raw,width={width},height={height},format=RGBA " \
+                              "! videoconvert " \
+                              "! appsink".format(location=v,
+                                                 fps=fps,
+                                                 width=width,
+                                                 height=height,
+                                                 user=rtsp_user,
+                                                 password=rtsp_password)
 
             # Ensure directory for particular camera exists
             camera_path = os.path.normpath(r"{}/{}".format(session_path, i))

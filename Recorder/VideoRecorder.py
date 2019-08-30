@@ -47,11 +47,6 @@ class VideoRecorder(object):
         try:
             # Initialise the capture
             capture = cv2.VideoCapture(self.camera.source, cv2.CAP_GSTREAMER)
-            #capture.set(cv2.CAP_PROP_FRAME_WIDTH, self.camera.width)
-            #capture.set(cv2.CAP_PROP_FRAME_HEIGHT, self.camera.height)
-            #capture.set(cv2.CAP_PROP_FPS, self.camera.fps)
-            #capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
-            #capture.set(cv2.CAP_PROP_EXPOSURE, -8)
             snapshot_time = time.time()
             frame_number = 0
 
