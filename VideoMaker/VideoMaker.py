@@ -7,13 +7,13 @@ from Shared.MultiProcessingQueue import MultiProcessingQueue
 
 class VideoMaker(object):
     def __init__(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                 width: int, height: int, fps: int):
-        #os.sched_setaffinity(0, {1})
+                 width: int, height: int, fps: int, debugging: bool):
         self.playground = playground
         self.video_queue = video_queue
         self.output_video = output_video
         self.width = width
         self.height = height
+        self.debugging = debugging
         self.fps = fps
         self.video_creating = False
 

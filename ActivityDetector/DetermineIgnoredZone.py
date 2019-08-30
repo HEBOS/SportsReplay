@@ -1,8 +1,8 @@
 """
-    Usage: python3 DetermineIgnoredZone.py --image PNG_IMAGE_FULL_PATH  --camera CAMERA_ID
+    Usage: python3 DetermineIgnoredZone.py --image PNG_IMAGE_FULL_PATH  --camera CAMERA_ID --detect TRUE_FALSE
 
     Sample usage:
-    python3 DetermineIgnoredZone.py --image  point-1.png --camera 1
+    python3 DetermineIgnoredZone.py --image  point-1.png --camera 1 --detect true
 """
 from graphics import *
 import keyboard
@@ -12,9 +12,10 @@ import tkinter as tk
 
 
 class PolygonViewer(object):
-    def __init__(self, image, camera):
+    def __init__(self, image, camera, detection):
         self.image_path = image
         self.camera = camera
+        self.detection = detection
         self.width = 1280
         self.height = 720
         self.ratio = 1280 / 480
@@ -68,7 +69,9 @@ class PolygonViewer(object):
             json += "{" + "\"x\": {}, \"y\": {}".format(int(point.x / self.ratio), int(point.y / self.ratio)) + "}"
         json += "]"
 
-        return "{\"camera\": " + str(self.camera) + ", \"points\": " + json + "}"
+        return "{\"camera\": " + str(self.camera) + \
+               ", \"detect\": " + str(self.detection).lower() + \
+               ", \"points\": " + json + "}"
 
 
 if __name__ == "__main__":
@@ -78,15 +81,19 @@ if __name__ == "__main__":
                                 formatter_class=argparse.RawTextHelpFormatter,
                                 epilog="Please run using: python3 DetermineIgnoredZone.py "
                                        "--image PNG_IMAGE_FULL_PATH "
-                                       "--camera CAMERA_ID")
+                                       "--camera CAMERA_ID"
+                                       "--detect true")
 
-    parser.add_argument("--image", type=str, help="filename of the input image to process")
-    parser.add_argument("--camera", type=int, default=None,
-                        help="Camera id")
+    parser.add_argument("--image", type=str,
+                        help="filename of the input image to process", required=True)
+    parser.add_argument("--camera", type=int,
+                        help="The camera id", required=True)
+    parser.add_argument("--detect", type=bool,
+                        help="True if this area is for detection. False for prohibited areas", required=True)
 
     try:
         opt, argv = parser.parse_known_args()
-        PolygonViewer(opt.image, opt.camera)
+        PolygonViewer(opt.image, opt.camera, opt.detect)
     except Exception as ex:
         print(ex)
         parser.print_help()

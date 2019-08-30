@@ -10,7 +10,6 @@ class CapturedFrame(object):
         self.frame_number = frame_number
         self.timestamp = int(snapshot_time) + float(frame_number / 1000)
         self.snapshot_time = snapshot_time
-        self.largest_ball_size = 0
         self.frame = frame
 
     def __exit__(self, exc_type, exc_val, exc_tb):

@@ -17,5 +17,4 @@ class Camera(object):
         self.targetPath = target_path
         self.start_of_capture = start_of_capture
         self.end_of_capture = end_of_capture
-        self.largest_ball_size = 0
         self.last_detection = time.time()

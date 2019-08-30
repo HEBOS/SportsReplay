@@ -6,10 +6,11 @@ from Shared.Point import Point
 import json
 
 
-class IgnoredPolygon(object):
-    def __init__(self, camera: int, points: List[Point]):
+class DefinedPolygon(object):
+    def __init__(self, camera: int, detect: bool, points: List[Point]):
         self.camera_id = camera
         self.points = points
+        self.detect = detect
         self.polygon = Polygon(SharedFunctions.get_points_array(points))
 
     def contains_ball(self, ball: Detection) -> bool:
@@ -18,11 +19,11 @@ class IgnoredPolygon(object):
     @staticmethod
     def get_polygons(json_content: str):
         json_obj = json.loads(json_content)
-        polygons: List[IgnoredPolygon] = []
+        polygons: List[DefinedPolygon] = []
         for p in json_obj:
             points: List[Point] = []
             for point in p["points"]:
                 points.append(Point(point["x"], point["y"]))
-            polygons.append(IgnoredPolygon(p["camera"], points))
+            polygons.append(DefinedPolygon(p["camera"], p["detect"], points))
         return polygons
 

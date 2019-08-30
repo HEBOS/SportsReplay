@@ -18,7 +18,6 @@ class Detection(object):
         self.height = height
         self.confidence = confidence
         self.instance = instance
-        self.ball_size = 2 * (self.width + self. height)
         self.frame_number = frame_number
         self.points: List[Point] = [Point(self.left, self.top),
                                     Point(self.left, self.bottom),
