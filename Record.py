@@ -128,13 +128,15 @@ class Record(object):
                                                  width=width,
                                                  height=height)
             else:
-                source_path = "rtspsrc location={location} " \
-                              "latency=200 " \
-                              "! rtph264depay " \
+                source_path = "rtspsrc location={location} latency=2000 " \
+                              "! rtph264depay user-id={user} user-pw={password} " \
+                              "! capsfilter caps=video/x-h264,width={width}," \
+                              "height={height},framerate=(fraction){fps}/1 " \
+                              "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
                               "! nvvidconv " \
-                              "! video/x-raw,width={width},height={height},format=RGBA " \
+                              "! video/x-raw,format=RGBA " \
                               "! videoconvert " \
                               "! appsink".format(location=v,
                                                  fps=fps,
