@@ -52,9 +52,6 @@ class VideoRecorder(object):
 
             # Do until it is expected
             while (time.time() < self.camera.end_of_capture) and self.capturing:
-                with self.capture_lock:
-                    if not self.capturing:
-                        break
 
                 # Wait for the next time trigger
                 while time.time() - snapshot_time <= 1 / self.camera.fps:
@@ -104,19 +101,21 @@ class VideoRecorder(object):
                                                            snapshot_time,
                                                            frame)
                             self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
-
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
                               .format(self.camera.id, self.camera.playground))
         finally:
+            if capture is not None:
+                capture.release()
+            SharedFunctions.release_open_cv()
+            self.detection_connection.close()
             self.ai_queue.mark_as_done()
             self.video_queue.mark_as_done()
-            self.detection_connection.close()
-
+            self.ai_queue = None
+            self.video_queue = None
             print("Camera {}, on playground {} finished recording."
                   .format(self.camera.id, self.camera.playground))
-            SharedFunctions.release_open_cv()
             print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
 
     def draw_debug_info(self, img: np.array, frame_info: float):

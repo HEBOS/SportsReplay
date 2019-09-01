@@ -130,8 +130,8 @@ class Detector(object):
         except Exception as ex:
             print("ERROR: {}".format(ex))
         finally:
-            self.video_queue.mark_as_done()
             self.detection_connection.close()
+            self.video_queue.mark_as_done()
             print("Detector finished working.")
 
     def log_balls(self, ball_sizes: List[Detection]):
