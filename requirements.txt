@@ -7,6 +7,7 @@ jsonpickle==1.2
 Polygon3==3.0.8
 graphics.py==5.0.1.post1
 keyboard==0.13.3
+pyftp-0.1.0
 
 # Run the following command to be able to run QueueImageTest2
 #    sudo apt-get install graphviz

@@ -14,6 +14,7 @@ from Shared.Camera import Camera
 from VideoMaker.VideoMaker import VideoMaker
 from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.DefinedPolygon import DefinedPolygon
+from Uploaders.FtpUploader import FtpUploader
 
 
 class Record(object):
@@ -91,6 +92,10 @@ class Record(object):
         threshold = config.activity_detector["threshold"]
         polygons_path = os.path.normpath(r"{}".format(config.activity_detector["polygons"]))
         polygons_json = SharedFunctions.read_text_file(polygons_path)
+        pi_host = config.pi_computer["host"]
+        pi_ftp_username = config.pi_computer["user"]
+        pi_ftp_password = config.pi_computer["password"]
+        pi_ftp_streaming_folder = config.pi_computer["streaming-folder"]
 
         # Initialise the polygons (for covered, and restricted areas).
         polygons: List[DefinedPolygon] = DefinedPolygon.get_polygons(polygons_json)
@@ -206,10 +211,11 @@ class Record(object):
             dispatch_thread.join()
 
             # Moving files to a new location
-            print("Moving video to streaming  directory...")
+            print("Uploading video to Pi computer")
             if os.path.isfile(output_video):
-                new_path = output_video.replace(video_making_path, streaming_path)
-                os.rename(output_video, new_path)
+                with FtpUploader(pi_host, pi_ftp_username, pi_ftp_password, pi_ftp_streaming_folder) as uploader:
+                    uploader.upload(output_video, os.path.basename(os.path.normpath(output_video)), True)
+                os.remove(output_video)
 
             # Remove session directory
             print("Removing processing directory...")
