@@ -104,21 +104,22 @@ class Detector(object):
                         # We declare the examining camera as an active one if there is a ball in the area it covers
                         # but the ball is not in protected area
                         for ball in balls:
-                            if Linq(self.polygons).any(
-                                    lambda p: p.camera_id == ball.camera_id and
-                                    p.detect and p.contains_ball(ball)) and \
-                               not Linq(self.polygons).any(
-                                    lambda p: p.camera_id == ball.camera_id and
-                                    (not p.detect) and p.contains_ball(ball)):
+                            if ball.confidence > 0.11:
+                                if Linq(self.polygons).any(
+                                        lambda p: p.camera_id == ball.camera_id and
+                                                  p.detect and p.contains_ball(ball)) and \
+                                        not Linq(self.polygons).any(
+                                            lambda p: p.camera_id == ball.camera_id and
+                                                      (not p.detect) and p.contains_ball(ball)):
 
-                                if self.active_camera.id != ball.camera_id:
-                                    # Change active camera
-                                    self.active_camera = self.cameras[ball.camera_id - 1]
-                                    # Send message, which will be received by Recorder,
-                                    # and dispatched to all VideoRecorder instances
-                                    self.detection_connection.send(ball)
-                                    self.logger.info("Camera {} became active.".format(self.active_camera.id))
-                                break
+                                    if self.active_camera.id != ball.camera_id:
+                                        # Change active camera
+                                        self.active_camera = self.cameras[ball.camera_id - 1]
+                                        # Send message, which will be received by Recorder,
+                                        # and dispatched to all VideoRecorder instances
+                                        self.detection_connection.send(ball)
+                                        self.logger.info("Camera {} became active.".format(self.active_camera.id))
+                                    break
 
                             # Preserve information about last detection, no matter, if we changed the camera or not
                             camera = self.cameras[captured_frame.camera.id - 1]

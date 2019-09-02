@@ -95,7 +95,6 @@ class Record(object):
         pi_host = config.pi_computer["host"]
         pi_ftp_username = config.pi_computer["user"]
         pi_ftp_password = config.pi_computer["password"]
-        pi_ftp_streaming_folder = config.pi_computer["streaming-folder"]
 
         # Initialise the polygons (for covered, and restricted areas).
         polygons: List[DefinedPolygon] = DefinedPolygon.get_polygons(polygons_json)
@@ -213,20 +212,25 @@ class Record(object):
             # Moving files to a new location
             print("Uploading video to Pi computer")
             if os.path.isfile(output_video):
-                with FtpUploader(pi_host, pi_ftp_username, pi_ftp_password, pi_ftp_streaming_folder) as uploader:
-                    uploader.upload(output_video, os.path.basename(os.path.normpath(output_video)), True)
+                uploader = FtpUploader(pi_host, pi_ftp_username, pi_ftp_password)
+                uploader.upload(output_video, os.path.basename(os.path.normpath(output_video)), True)
                 os.remove(output_video)
 
             # Remove session directory
-            print("Removing processing directory...")
-            shutil.rmtree(session_path)
+            print("Removing processing directories...")
+            self.files_cleanup(session_path, streaming_path, video_making_path)
 
             print("Done")
             print("Recording session finished after {} seconds.".format(time.time() - started_at))
         except:
             # Remove the whole session directory
             print("Directory {} has been removed, due to errors.".format(session_path))
-            shutil.rmtree(session_path)
+            self.files_cleanup(session_path, streaming_path, video_making_path)
+
+    def files_cleanup(self, session_path: str, streaming_path: str, video_making_path: str):
+        shutil.rmtree(session_path)
+        shutil.rmtree(streaming_path)
+        shutil.rmtree(video_making_path)
 
     def dispatch_detection_messages(self, detection_connection: mp.connection.Connection,
                                     recorders_connections: List[mp.connection.Connection]):
