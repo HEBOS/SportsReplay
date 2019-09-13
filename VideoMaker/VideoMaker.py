@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import cv2
+import gc
 from Shared.CapturedFrame import CapturedFrame
 from Shared.SharedFunctions import SharedFunctions
 from Shared.MultiProcessingQueue import MultiProcessingQueue
@@ -19,10 +20,12 @@ class VideoMaker(object):
 
     def start(self):
         self.video_creating = True
-        output_pipeline = "appsrc " \
-                          "! autovideoconvert " \
+        output_pipeline = "appsrc num-buffers=60 " \
                           "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
-                          "! omxh264enc ! video/x-h264,stream-format=byte-stream " \
+                          "! nvvidconv " \
+                          "! 'video/x-raw(memory:NVMM),format=NV12' " \
+                          "! omxh264enc insert-vui=1 " \
+                          "! video/x-h264,stream-format=byte-stream " \
                           "! h264parse " \
                           "! qtmux " \
                           "! filesink location={video}".format(width=self.width,
@@ -45,11 +48,13 @@ class VideoMaker(object):
                     break
                 else:
                     writer.write(captured_frame.frame)
-                    del captured_frame.frame
+                    captured_frame.release()
 
                     if i % self.fps == 0:
                         print("Output video: {}. Frames written {}".format(
                             SharedFunctions.normalise_time(i, self.fps), i))
+                        gc.collect()
+
         writer.release()
         SharedFunctions.release_open_cv()
         print("VideoMaker ended.")

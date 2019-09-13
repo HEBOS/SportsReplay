@@ -1,6 +1,6 @@
 import cv2
 
-input_pipeline = "filesrc location=/home/sportsreplay/GitHub/sports-replay-hrvoje/videos/2.mp4 " \
+input_pipeline = "filesrc location=/home/sportsreplay/GitHub/sports-replay-hrvoje/videos/test-video-2.mp4 " \
                  "! qtdemux " \
                  "! h264parse " \
                  "! omxh264dec " \
@@ -10,7 +10,7 @@ input_pipeline = "filesrc location=/home/sportsreplay/GitHub/sports-replay-hrvoj
                  "! autovideoconvert " \
                  "! appsink "
 
-input_pipeline = "filesrc location=/home/sportsreplay/GitHub/sports-replay-hrvoje/videos/2.mp4 ! qtdemux ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw(memory: NVMM),format=RGBA ! videoconvert ! appsink -vvv"
+input_pipeline = "filesrc location=/home/sportsreplay/GitHub/sports-replay-hrvoje/videos/test-video-2.mp4 ! qtdemux ! h264parse ! omxh264dec ! nvvidconv ! video/x-raw(memory: NVMM),format=RGBA ! videoconvert ! appsink -vvv"
 
 capture = cv2.VideoCapture(input_pipeline, cv2.CAP_GSTREAMER)
 

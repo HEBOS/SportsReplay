@@ -12,6 +12,5 @@ class CapturedFrame(object):
         self.snapshot_time = snapshot_time
         self.frame = frame
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        del self.frame
-
+    def release(self):
+        self.frame = None

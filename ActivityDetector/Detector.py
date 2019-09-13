@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import jetson.inference
-import jetson.utils
 import cv2
 import multiprocessing as mp
 import time
@@ -8,11 +6,6 @@ import jsonpickle
 import numpy as np
 import threading
 import os
-import tensorrt as trt
-import pycuda.driver as cuda
-import pycuda.autoinit
-from PIL import ImageDraw
-from data_processing import PreprocessYOLO, PostprocessYOLO, ALL_CATEGORIES
 from typing import List
 from Shared.LogHandler import LogHandler
 from Shared.CapturedFrame import CapturedFrame
@@ -22,19 +15,22 @@ from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.Linq import Linq
 from Shared.SharedFunctions import SharedFunctions
 from Shared.DefinedPolygon import DefinedPolygon
+from Darknet.DarknetDetector import DarknetDetector
 
 
 class Detector(object):
     def __init__(self, playground: int, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                 class_id: int, network: str, threshold: float, width: int, height: int,
+                 class_id: int, network_config_path: str, network_weights_path: str,
+                 coco_config_path: str, width: int, height: int,
                  cameras: List[Camera], detection_connection: mp.connection.Connection,
                  polygons: List[DefinedPolygon], debugging: bool):
         self.playground = playground
         self.ai_queue = ai_queue
         self.video_queue = video_queue
         self.class_id = class_id
-        self.network = network
-        self.threshold = threshold
+        self.network_config_path = network_config_path
+        self.network_weights_path = network_weights_path
+        self.coco_config_path = coco_config_path
         self.width = width
         self.height = height
         self.cameras = cameras
@@ -47,19 +43,14 @@ class Detector(object):
         # Logger
         self.logger = LogHandler("detector")
 
-        # Init engine logger
-        self.trt_logger = trt.Logger()
-
     def start(self):
         self.detecting = True
 
         # load the object detection network
+        net: DarknetDetector = DarknetDetector(self.network_config_path,
+                                               self.network_weights_path,
+                                               self.coco_config_path)
 
-
-
-        net = jetson.inference.detectNet(self.network,
-                                         [],
-                                         float(self.threshold))
         try:
             ballsizes: List[Detection] = []
             while self.detecting:
@@ -73,29 +64,21 @@ class Detector(object):
 
                     start_time = time.time()
 
-                    # This increases the fps of AI detection
-                    size = (480, 272)
-
-                    rgba = cv2.cvtColor(cv2.resize(captured_frame.frame, size), cv2.COLOR_RGB2RGBA)
-                    image = jetson.utils.cudaFromNumpy(rgba)
-
                     # Run the AI detection, based on class id
-                    detections = net.Detect(image, size[0], size[1])
-                    jetson.utils.cudaDeviceSynchronize()
-                    del image
+                    detections = net.detect(captured_frame.frame, True)
+                    captured_frame.release()
 
                     # Convert detections into balls
                     balls = []
                     for detection in detections:
                         if detection.ClassID == self.class_id:
-                            balls.append(Detection(detection.Left,
-                                                   detection.Right,
-                                                   detection.Top,
-                                                   detection.Bottom,
-                                                   detection.Width,
-                                                   detection.Height,
+                            balls.append(Detection(int(detection.Left),
+                                                   int(detection.Right),
+                                                   int(detection.Top),
+                                                   int(detection.Bottom),
+                                                   int(detection.Width),
+                                                   int(detection.Height),
                                                    detection.Confidence,
-                                                   detection.Instance,
                                                    captured_frame.camera.id,
                                                    int(captured_frame.snapshot_time) +
                                                    captured_frame.frame_number / 10000))
@@ -111,8 +94,6 @@ class Detector(object):
                                                  len(balls)))
                         if len(balls) == 1 and self.debugging:
                             ballsizes.append(balls[0])
-
-                    del detections
 
                     if len(balls) > 0:
                         # We declare the examining camera as an active one if there is a ball in the area it covers
@@ -193,23 +174,3 @@ class Detector(object):
                                                                   str(captured_frame.frame_number).zfill(4),
                                                                   captured_frame.camera.id))
         cv2.imwrite(dump_file_path, captured_frame.frame)
-
-
-    def init_trt_engine(self, network: str):
-        with open(network, "rb") as f, trt.Runtime(self.trt_logger) as runtime:
-            return runtime.deserialize_cuda_engine(f.read())
-
-    def trt_detection(self, image: np.array):
-        # Two-dimensional tuple with the target network's (spatial) input resolution in HW ordered
-        input_resolution_yolov3_hw = (480, 272)
-        # Create a pre-processor object by specifying the required input resolution for YOLOv3
-        preprocessor = PreprocessYOLO(input_resolution_yolov3_hw)
-        # Load an image from the specified input path, and return it together with  a pre-processed version
-        image_raw, image = preprocessor.process(input_image_path)
-        # Store the shape of the original input image in WH format, we will need it for later
-        shape_orig_WH = image_raw.size
-
-        # Output shapes expected by the post-processor
-        output_shapes = [(1, 255, 19, 19), (1, 255, 38, 38), (1, 255, 76, 76)]
-        # Do inference with TensorRT
-        trt_outputs = []

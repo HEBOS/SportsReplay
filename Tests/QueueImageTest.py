@@ -28,17 +28,10 @@ def fill_queue(q):
 while True:
     if not q.qsize() == 0:
         print(q.qsize())
-        some_image = q.get()
-        if some_image is None:
-            del some_image
-            break
-        del some_image
+        q.get()
     else:
         # print("filling queue with 500 images")
         fill_queue(q)
-
-del image
-del foo
 
 # cv2.waitKey(1)
 # cv2.destroyAllWindows()
@@ -55,8 +48,8 @@ print('Remaining Garbage:', gc.garbage)
 
 print("Final gc.collect()")
 
-del before
-del after
+before = None
+after = None
 n = gc.collect()
 
 tracker.print_diff()

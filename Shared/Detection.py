@@ -8,7 +8,7 @@ from typing import List
 
 class Detection(object):
     def __init__(self, left: int, right: int, top: int, bottom: int, width: int, height: int,
-                 confidence: float, instance: int, camera_id: int, frame_number: float):
+                 confidence: float, camera_id: int, frame_number: float):
         self.camera_id = camera_id
         self.left = left
         self.right = right
@@ -17,7 +17,6 @@ class Detection(object):
         self.width = width
         self.height = height
         self.confidence = confidence
-        self.instance = instance
         self.frame_number = frame_number
         self.points: List[Point] = [Point(self.left, self.top),
                                     Point(self.left, self.bottom),

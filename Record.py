@@ -31,12 +31,14 @@ class Record(object):
 
     def start_activity_detection(self, playground: int, ai_queue: MultiProcessingQueue,
                                  video_queue: MultiProcessingQueue, class_id: int,
-                                 network: str, threshold: float, width: int, height: int,
+                                 network_config: str, network_weights: str, coco_config: str,
+                                 width: int, height: int,
                                  detection_connection: mp.connection.Connection, cameras: List[Camera],
                                  polygons: List[DefinedPolygon], debugging: bool):
 
-        detector = Detector(playground, ai_queue, video_queue, class_id, network, threshold, width, height,
-                            cameras, detection_connection, polygons, debugging)
+        detector = Detector(playground, ai_queue, video_queue, class_id, network_config, network_weights,
+                            coco_config, width, height, cameras, detection_connection,
+                            polygons, debugging)
 
         detector.start()
 
@@ -86,10 +88,11 @@ class Record(object):
         height = int(config.recorder["height"])
         rtsp_user = config.recorder["rtsp-user"]
         rtsp_password = config.recorder["rtsp-password"]
-        class_id = SharedFunctions.get_class_id(os.path.join(os.getcwd(), config.activity_detector["labels"]),
-                                                config.activity_detector["sports-ball"])
-        network = config.activity_detector["network"]
-        threshold = config.activity_detector["threshold"]
+        network_config = os.path.join(os.getcwd(), config.activity_detector["network-config"])
+        network_weights = os.path.join(os.getcwd(), config.activity_detector["network-weights"])
+        coco_config = os.path.join(os.getcwd(), config.activity_detector["coco-config"])
+        coco_labels = os.path.join(os.getcwd(), config.activity_detector["coco-labels"])
+        class_id = SharedFunctions.get_class_id(coco_labels, config.activity_detector["sports-ball"])
         polygons_path = os.path.normpath(r"{}".format(config.activity_detector["polygons"]))
         polygons_json = SharedFunctions.read_text_file(polygons_path)
         pi_host = config.pi_computer["host"]
@@ -169,8 +172,9 @@ class Record(object):
 
         # Create a process for activity detection
         processes.append(mp.Process(target=self.start_activity_detection,
-                                    args=(playground, ai_queue, video_queue, class_id, network, threshold,
-                                          width, height, detection_pipe_out, cameras, polygons, debugging)))
+                                    args=(playground, ai_queue, video_queue, class_id, network_config, network_weights,
+                                          coco_config, width, height, detection_pipe_out, cameras,
+                                          polygons, debugging)))
 
         # Create a process for video rendering
         processes.append(mp.Process(target=self.start_video_making,

@@ -12,6 +12,8 @@ graphics.py==5.0.1.post1
 keyboard==0.13.3
 pyftp==0.1.0
 torch==1.2.0
+graphviz==0.13
+objgraph==3.4.1
 #opencv-python==4.1.0.25
 
 # Run the following command to be able to run QueueImageTest2

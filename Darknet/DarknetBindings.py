@@ -1,6 +1,12 @@
 from ctypes import *
 import os
 import random
+import cv2
+from Shared.SharedFunctions import SharedFunctions
+from Shared.YoloDetection import YoloDetection
+from typing import List
+import gc
+import numpy
 
 
 def sample(probs):
@@ -65,6 +71,9 @@ make_image = lib.make_image
 make_image.argtypes = [c_int, c_int, c_int]
 make_image.restype = IMAGE
 
+copy_image_from_bytes = lib.copy_image_from_bytes
+copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
+
 get_network_boxes = lib.get_network_boxes
 get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int)]
 get_network_boxes.restype = POINTER(DETECTION)
@@ -110,9 +119,8 @@ load_image = lib.load_image_color
 load_image.argtypes = [c_char_p, c_int, c_int]
 load_image.restype = IMAGE
 
-ndarray_image = lib.ndarray_to_image
-ndarray_image.argtypes = [POINTER(c_ubyte), POINTER(c_long), POINTER(c_long)]
-ndarray_image.restype = IMAGE
+copy_image_from_bytes = lib.copy_image_from_bytes
+copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
 
 rgbgr_image = lib.rgbgr_image
 rgbgr_image.argtypes = [IMAGE]
@@ -131,29 +139,28 @@ def classify(net, meta, im):
     return res
 
 
-def detect(net, meta, np_img, thresh=.5, hier_thresh=.5, nms=.45):
-    im = nparray_to_image(np_img)
+def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45) -> List[YoloDetection]:
     num = c_int(0)
     pnum = pointer(num)
-    predict_image(net, im)
-    dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
+    predict_image(net, image)
+    dets = get_network_boxes(net, image.w, image.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
-    if (nms): do_nms_obj(dets, num, meta.classes, nms);
+    if nms:
+        do_nms_obj(dets, num, meta.classes, nms)
 
     res = []
     for j in range(num):
         for i in range(meta.classes):
             if dets[j].prob[i] > 0:
                 b = dets[j].bbox
-                res.append((meta.names[i], dets[j].prob[i], (b.x, b.y, b.w, b.h)))
-    res = sorted(res, key=lambda x: -x[1])
-    free_image(im)
+                res.append(YoloDetection(i,
+                                         meta.names[i],
+                                         dets[j].prob[i],
+                                         b.x,
+                                         b.y,
+                                         b.w,
+                                         b.h))
+
+    res = sorted(res, key=lambda x: x.ClassID)
     free_detections(dets, num)
     return res
-
-
-def nparray_to_image(img):
-    data = img.ctypes.data_as(POINTER(c_ubyte))
-    image = ndarray_image(data, img.ctypes.shape, img.ctypes.strides)
-
-    return image

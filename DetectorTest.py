@@ -22,17 +22,16 @@ class DetectorTest(object):
         self.sports_ball_id = self.class_names.index(self.config.activity_detector["sports-ball"])
 
         # load the object detection network
-        net = DarknetDetector.DarknetDetector(self.config.activity_detector["network-config"],
-                                              self.config.activity_detector["network-weights"],
-                                              self.config.activity_detector["coco-config"])
+        net = DarknetDetector.DarknetDetector(
+            os.path.join(os.getcwd(), self.config.activity_detector["network-config"]),
+            os.path.join(os.getcwd(), self.config.activity_detector["network-weights"]),
+            os.path.join(os.getcwd(), self.config.activity_detector["coco-config"]))
 
         started_at = time.time()
         detected_frames = 0
-        #size = (418, 272)
         for jpg_file in self.samples:
-            #img = cv2.cvtColor(cv2.resize(cv2.imread(jpg_file), size), cv2.COLOR_RGB2RGBA)
-            img = cv2.cvtColor(cv2.imread(jpg_file), cv2.COLOR_RGB2RGBA)
-            detections = net.detect(img)
+            img = cv2.imread(jpg_file)
+            detections = net.detect(img, True)
             if detections is not None:
                 if len(detections) > 0:
                     detected_frame = False

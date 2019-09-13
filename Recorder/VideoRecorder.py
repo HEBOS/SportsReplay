@@ -4,6 +4,7 @@ import multiprocessing as mp
 import logging
 import math
 import cv2
+import gc
 import numpy as np
 from typing import List
 from Shared.LogHandler import LogHandler
@@ -44,6 +45,7 @@ class VideoRecorder(object):
             time.sleep(.010)
         print("Expected start {}. Started at {}".format(self.camera.start_of_capture, time.time()))
 
+        capture = None
         try:
             # Initialise the capture
             capture = cv2.VideoCapture(self.camera.source, cv2.CAP_GSTREAMER)
@@ -101,6 +103,9 @@ class VideoRecorder(object):
                                                            snapshot_time,
                                                            frame)
                             self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
+
+                    if frame_number % self.camera.fps == 0:
+                        gc.collect()
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
