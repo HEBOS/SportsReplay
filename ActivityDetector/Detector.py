@@ -5,6 +5,14 @@ import cv2
 import multiprocessing as mp
 import time
 import jsonpickle
+import numpy as np
+import threading
+import os
+import tensorrt as trt
+import pycuda.driver as cuda
+import pycuda.autoinit
+from PIL import ImageDraw
+from data_processing import PreprocessYOLO, PostprocessYOLO, ALL_CATEGORIES
 from typing import List
 from Shared.LogHandler import LogHandler
 from Shared.CapturedFrame import CapturedFrame
@@ -39,10 +47,16 @@ class Detector(object):
         # Logger
         self.logger = LogHandler("detector")
 
+        # Init engine logger
+        self.trt_logger = trt.Logger()
+
     def start(self):
         self.detecting = True
 
         # load the object detection network
+
+
+
         net = jetson.inference.detectNet(self.network,
                                          [],
                                          float(self.threshold))
@@ -104,22 +118,25 @@ class Detector(object):
                         # We declare the examining camera as an active one if there is a ball in the area it covers
                         # but the ball is not in protected area
                         for ball in balls:
-                            if ball.confidence > 0.11:
-                                if Linq(self.polygons).any(
+                            if Linq(self.polygons).any(
+                                    lambda p: p.camera_id == ball.camera_id and
+                                    p.detect and p.contains_ball(ball)) and \
+                                    not Linq(self.polygons).any(
                                         lambda p: p.camera_id == ball.camera_id and
-                                                  p.detect and p.contains_ball(ball)) and \
-                                        not Linq(self.polygons).any(
-                                            lambda p: p.camera_id == ball.camera_id and
-                                                      (not p.detect) and p.contains_ball(ball)):
+                                        (not p.detect) and p.contains_ball(ball)):
 
-                                    if self.active_camera.id != ball.camera_id:
-                                        # Change active camera
-                                        self.active_camera = self.cameras[ball.camera_id - 1]
-                                        # Send message, which will be received by Recorder,
-                                        # and dispatched to all VideoRecorder instances
-                                        self.detection_connection.send(ball)
-                                        self.logger.info("Camera {} became active.".format(self.active_camera.id))
-                                    break
+                                if self.active_camera.id != ball.camera_id:
+                                    # Change active camera
+                                    self.active_camera = self.cameras[ball.camera_id - 1]
+                                    # Send message, which will be received by Recorder,
+                                    # and dispatched to all VideoRecorder instances
+                                    self.detection_connection.send(ball)
+                                    self.logger.info("Camera {} became active.".format(self.active_camera.id))
+                                    if self.debugging:
+                                        debug_thread = threading.Thread(target=self.draw_debug_info,
+                                                                        args=(captured_frame, ball))
+                                        debug_thread.start()
+                                break
 
                             # Preserve information about last detection, no matter, if we changed the camera or not
                             camera = self.cameras[captured_frame.camera.id - 1]
@@ -152,3 +169,47 @@ class Detector(object):
 
             )
         SharedFunctions.create_list_file(r"/home/sportsreplay/tmp/recording/detected-balls.txt", ballsizes_lines)
+
+    def draw_debug_info(self, captured_frame: CapturedFrame, ball: Detection):
+        # Draw protected area first
+        for polygon_definition in self.polygons:
+            if polygon_definition.camera_id == captured_frame.camera.id:
+                points = SharedFunctions.get_points_array(polygon_definition.points, 1280 / 480)
+                pts = np.array(points, np.int32)
+                pts = pts.reshape((-1, 1, 2))
+                cv2.polylines(captured_frame.frame, [pts], True, (0, 0, 0))
+
+        # Draw last detection
+        points = SharedFunctions.get_points_array(ball.points, 1280 / 480)
+        pts = np.array(points, np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        cv2.polylines(captured_frame.frame, [pts], True, (52, 158, 190))
+
+        cv2.putText(captured_frame.frame, "Confidence={}%".format(ball.confidence * 100),
+                    (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
+
+        dump_file_path = os.path.join(captured_frame.camera.session_path,
+                                      "frame-{}-{}-{}.jpg".format(int(captured_frame.snapshot_time),
+                                                                  str(captured_frame.frame_number).zfill(4),
+                                                                  captured_frame.camera.id))
+        cv2.imwrite(dump_file_path, captured_frame.frame)
+
+
+    def init_trt_engine(self, network: str):
+        with open(network, "rb") as f, trt.Runtime(self.trt_logger) as runtime:
+            return runtime.deserialize_cuda_engine(f.read())
+
+    def trt_detection(self, image: np.array):
+        # Two-dimensional tuple with the target network's (spatial) input resolution in HW ordered
+        input_resolution_yolov3_hw = (480, 272)
+        # Create a pre-processor object by specifying the required input resolution for YOLOv3
+        preprocessor = PreprocessYOLO(input_resolution_yolov3_hw)
+        # Load an image from the specified input path, and return it together with  a pre-processed version
+        image_raw, image = preprocessor.process(input_image_path)
+        # Store the shape of the original input image in WH format, we will need it for later
+        shape_orig_WH = image_raw.size
+
+        # Output shapes expected by the post-processor
+        output_shapes = [(1, 255, 19, 19), (1, 255, 38, 38), (1, 255, 76, 76)]
+        # Do inference with TensorRT
+        trt_outputs = []

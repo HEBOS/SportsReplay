@@ -78,7 +78,7 @@ install_dependencies () {
 configure () {
     local CMAKEFLAGS="
         -D BUILD_EXAMPLES=OFF
-        -D BUILD_opencv_python2=ON
+        -D BUILD_opencv_python2=OFF
         -D BUILD_opencv_python3=ON
         -D CMAKE_INSTALL_PREFIX=${PREFIX}
         -D OPENCV_EXTRA_MODULES_PATH=/tmp/build_opencv/opencv_contrib/modules
@@ -86,7 +86,8 @@ configure () {
         -D CUDA_ARCH_BIN="5.3"
         -D CUDA_ARCH_PTX=""
         -D WITH_GSTREAMER=ON
-        -D WITH_LIBV4L=ON"
+        -D WITH_LIBV4L=ON
+        -D WITH_VULKAN=ON"
 
     if ! [[ "$1" -eq "test" ]] ; then
         CMAKEFLAGS="

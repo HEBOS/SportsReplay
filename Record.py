@@ -149,17 +149,13 @@ class Record(object):
                                                  user=rtsp_user,
                                                  password=rtsp_password)
 
-            # Ensure directory for particular camera exists
-            camera_path = os.path.normpath(r"{}/{}".format(session_path, i))
-            SharedFunctions.ensure_directory_exists(camera_path)
-
             # Initiate the pipes
             recorder_pipe_in, recorder_pipe_out = mp.Pipe(duplex=False)
             recorders_out_pipes.append(recorder_pipe_out)
 
             # Define the cammera, and add it to the list of cameras
             camera = Camera(i, source_path, fps, cdfps, width, height,
-                            client, building, playground, camera_path, start_of_capture, end_of_capture)
+                            client, building, playground, session_path, start_of_capture, end_of_capture)
             cameras.append(camera)
 
             # Start recording
@@ -210,7 +206,7 @@ class Record(object):
             dispatch_thread.join()
 
             # Moving files to a new location
-            print("Uploading video to Pi computer")
+            print("Uploading video to Raspberry Pi")
             if os.path.isfile(output_video):
                 uploader = FtpUploader(pi_host, pi_ftp_username, pi_ftp_password)
                 uploader.upload(output_video, os.path.basename(os.path.normpath(output_video)), True)
@@ -218,14 +214,16 @@ class Record(object):
 
             # Remove session directory
             print("Removing processing directories...")
-            self.files_cleanup(session_path, streaming_path, video_making_path)
+            if not debugging:
+                self.files_cleanup(session_path, streaming_path, video_making_path)
 
             print("Done")
             print("Recording session finished after {} seconds.".format(time.time() - started_at))
         except:
             # Remove the whole session directory
             print("Directory {} has been removed, due to errors.".format(session_path))
-            self.files_cleanup(session_path, streaming_path, video_making_path)
+            if not debugging:
+                self.files_cleanup(session_path, streaming_path, video_making_path)
 
     def files_cleanup(self, session_path: str, streaming_path: str, video_making_path: str):
         shutil.rmtree(session_path)
@@ -266,6 +264,6 @@ if __name__ == "__main__":
                                      formatter_class=argparse.RawTextHelpFormatter,
                                      epilog="Please run using: python3 Recorder.py --debug true")
 
-    parser.add_argument("--debug", type=bool, default=False, help="True for debugging.")
+    parser.add_argument("--debug", type=int, default=0, help="True for debugging.")
     opt, argv = parser.parse_known_args()
-    Record().start(opt.debug)
+    Record().start(opt.debug == 1)
