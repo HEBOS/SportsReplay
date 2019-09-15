@@ -81,7 +81,18 @@ class VideoRecorder(object):
 
                 if grabbed:
                     if detection_candidate or self.active_camera_id == self.camera.id:
-                        ref, frame = capture.retrieve(flag=0)
+                        ref, frame = capture.retrieve()
+
+                        # Detection candidate should be handled by Detector, that will send an active camera change
+                        # message, short time after, so that a correct instance of VideoRecorder can take over
+                        # the camera activity. Note that we are passing the copy of the image, to avoid it being
+                        # freed by video maker process
+                        if detection_candidate:
+                            captured_frame = CapturedFrame(self.camera,
+                                                           frame_number,
+                                                           snapshot_time,
+                                                           np.copy(frame))
+                            self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
 
                         # If this is the recorder for the active camera, we push the frame into video stream
                         if self.active_camera_id == self.camera.id:
@@ -93,19 +104,6 @@ class VideoRecorder(object):
                                                                    frame_number,
                                                                    snapshot_time,
                                                                    frame), "Video Queue")
-
-                        # Detection candidate should be handled by Detector, that will send an active camera change
-                        # message, short time after, so that a correct instance of VideoRecorder can take over
-                        # the camera activity
-                        if detection_candidate:
-                            captured_frame = CapturedFrame(self.camera,
-                                                           frame_number,
-                                                           snapshot_time,
-                                                           frame)
-                            self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
-
-                    if frame_number % self.camera.fps == 0:
-                        gc.collect()
         except cv2.error as e:
             self.capturing = False
             self.logger.error("Camera {}, on playground {} is not responding."
@@ -130,7 +128,8 @@ class VideoRecorder(object):
                 points = SharedFunctions.get_points_array(polygon_definition.points, 1280 / 480)
                 pts = np.array(points, np.int32)
                 pts = pts.reshape((-1, 1, 2))
-                cv2.polylines(img, [pts], True, (0, 0, 0))
+                border_color = (255, 0, 0) if not polygon_definition.detect else (0, 0, 0)
+                cv2.polylines(img, [pts], True, border_color)
 
         # Draw last detection
         if self.active_detection.camera_id == self.active_camera_id:

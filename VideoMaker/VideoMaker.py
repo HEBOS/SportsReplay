@@ -20,19 +20,19 @@ class VideoMaker(object):
 
     def start(self):
         self.video_creating = True
-        output_pipeline = "appsrc num-buffers=60 " \
-                          "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
-                          "! nvvidconv " \
-                          "! 'video/x-raw(memory:NVMM),format=NV12' " \
-                          "! omxh264enc insert-vui=1 " \
+        output_pipeline = "appsrc " \
+                          "! autovideoconvert " \
+                          "! video/x-raw,width={width},height={height},format=I420,framerate={fps}/1 " \
+                          "! omxh264enc " \
                           "! video/x-h264,stream-format=byte-stream " \
                           "! h264parse " \
                           "! qtmux " \
-                          "! filesink location={video}".format(width=self.width,
-                                                               height=self.height,
-                                                               fps=self.fps,
-                                                               video=self.output_video)
-
+                          "! filesink location={video}{space}".format(width=self.width,
+                                                                      height=self.height,
+                                                                      fps=self.fps,
+                                                                      video=self.output_video,
+                                                                      space=" ")
+        print(output_pipeline)
         writer = cv2.VideoWriter(output_pipeline,
                                  cv2.VideoWriter_fourcc(*'mp4v'),
                                  self.fps,

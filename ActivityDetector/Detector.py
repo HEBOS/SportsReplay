@@ -49,7 +49,8 @@ class Detector(object):
         # load the object detection network
         net: DarknetDetector = DarknetDetector(self.network_config_path,
                                                self.network_weights_path,
-                                               self.coco_config_path)
+                                               self.coco_config_path,
+                                               (self.cameras[0].width, self.cameras[0].height))
 
         try:
             ballsizes: List[Detection] = []
@@ -66,7 +67,6 @@ class Detector(object):
 
                     # Run the AI detection, based on class id
                     detections = net.detect(captured_frame.frame, True)
-                    captured_frame.release()
 
                     # Convert detections into balls
                     balls = []
@@ -115,13 +115,14 @@ class Detector(object):
                                     self.logger.info("Camera {} became active.".format(self.active_camera.id))
                                     if self.debugging:
                                         debug_thread = threading.Thread(target=self.draw_debug_info,
-                                                                        args=(captured_frame, ball))
+                                                                        args=(captured_frame.clone(), ball))
                                         debug_thread.start()
                                 break
 
                             # Preserve information about last detection, no matter, if we changed the camera or not
                             camera = self.cameras[captured_frame.camera.id - 1]
                             camera.last_detection = time.time()
+                    captured_frame.release()
 
             if self.debugging:
                 self.log_balls(ballsizes)
@@ -158,7 +159,8 @@ class Detector(object):
                 points = SharedFunctions.get_points_array(polygon_definition.points, 1280 / 480)
                 pts = np.array(points, np.int32)
                 pts = pts.reshape((-1, 1, 2))
-                cv2.polylines(captured_frame.frame, [pts], True, (0, 0, 0))
+                border_color = (255, 0, 0) if not polygon_definition.detect else (0, 0, 0)
+                cv2.polylines(captured_frame.frame, [pts], True, border_color)
 
         # Draw last detection
         points = SharedFunctions.get_points_array(ball.points, 1280 / 480)

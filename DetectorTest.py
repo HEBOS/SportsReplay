@@ -25,7 +25,8 @@ class DetectorTest(object):
         net = DarknetDetector.DarknetDetector(
             os.path.join(os.getcwd(), self.config.activity_detector["network-config"]),
             os.path.join(os.getcwd(), self.config.activity_detector["network-weights"]),
-            os.path.join(os.getcwd(), self.config.activity_detector["coco-config"]))
+            os.path.join(os.getcwd(), self.config.activity_detector["coco-config"]),
+            (480, 270))
 
         started_at = time.time()
         detected_frames = 0

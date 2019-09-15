@@ -118,12 +118,10 @@ class Record(object):
         # For each camera defined in the settings, generate one process
         for v in video_addresses:
             i += 1
-            source_path = v
-
             # If video source is not camera, but mp4 file, fix the path
             if ".mp4" in v:
                 source_path = "filesrc location={location} " \
-                              "! qtdemux " \
+                              "! qtdemux name=demux demux.video_0 " \
                               "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
@@ -134,24 +132,24 @@ class Record(object):
                                                  fps=fps,
                                                  width=width,
                                                  height=height)
+
+
             else:
                 source_path = "rtspsrc location={location} latency=2000 " \
                               "! rtph264depay user-id={user} user-pw={password} " \
-                              "! capsfilter caps=video/x-h264,width={width}," \
-                              "height={height},framerate=(fraction){fps}/1 " \
-                              "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
                               "! nvvidconv " \
-                              "! video/x-raw,format=RGBA " \
+                              "! video/x-row,width={width},height={height},format=RGBA,framerate=(fraction){fps}/1 " \
                               "! videoconvert " \
                               "! appsink".format(location=v,
-                                                 fps=fps,
-                                                 width=width,
-                                                 height=height,
-                                                 user=rtsp_user,
-                                                 password=rtsp_password)
+                                                  fps=fps,
+                                                  width=width,
+                                                  height=height,
+                                                  user=rtsp_user,
+                                                  password=rtsp_password)
 
+            print(source_path)
             # Initiate the pipes
             recorder_pipe_in, recorder_pipe_out = mp.Pipe(duplex=False)
             recorders_out_pipes.append(recorder_pipe_out)
