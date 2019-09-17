@@ -42,9 +42,9 @@ class Record(object):
         detector.start()
 
     def start_video_making(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                           start_of_video_saving: float, detection_connection: mp.connection.Connection,
+                           latency: float, detection_connection: mp.connection.Connection,
                            polygons: List[DefinedPolygon], width: int, height: int, fps: int, debugging: bool):
-        video_maker = VideoMaker(playground, video_queue, output_video, start_of_video_saving,
+        video_maker = VideoMaker(playground, video_queue, output_video, latency,
                                  detection_connection, polygons, width, height, fps, debugging)
         video_maker.start()
 
@@ -55,7 +55,7 @@ class Record(object):
         playtime = int(config.common["playtime"])
         start_of_capture = time.time() + 15
         end_of_capture = start_of_capture + 15 + playtime
-        start_of_video_saving = time.time() + 15 + float(config.video_maker["save-delay"])
+        video_latency = float(config.video_maker["save-delay"])
         video_addresses = str(config.recorder["video"]).split(",")
 
         # Ensure that root directory exists
@@ -173,7 +173,7 @@ class Record(object):
 
         # Create a process for video rendering
         processes.append(mp.Process(target=self.start_video_making,
-                                    args=(playground, video_queue, output_video, start_of_video_saving,
+                                    args=(playground, video_queue, output_video, video_latency,
                                           video_maker_pipe_in, polygons, width, height, fps, debugging)))
 
         # Start the processes

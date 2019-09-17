@@ -13,12 +13,12 @@ from Shared.DefinedPolygon import DefinedPolygon
 
 class VideoMaker(object):
     def __init__(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                 start_of_video_saving: float, detection_connection: mp.connection.Connection,
+                 latency: float, detection_connection: mp.connection.Connection,
                  polygons: List[DefinedPolygon], width: int, height: int, fps: int, debugging: bool):
         self.playground = playground
         self.video_queue = video_queue
         self.output_video = output_video
-        self.start_of_video_saving = start_of_video_saving
+        self.latency = latency
         self.detection_connection = detection_connection
         self.polygons = polygons
         self.width = width
@@ -51,37 +51,34 @@ class VideoMaker(object):
                                  (self.width, self.height),
                                  True)
 
-        # Delay the start of video recording to be able to switch camera more ahead
-        while self.start_of_video_saving > time.time():
-            time.sleep(.010)
-        print("VideoMaker expected start {}. Started at {}".format(self.start_of_video_saving, time.time()))
-
         i = 0
         while True:
             if not self.video_queue.is_empty():
                 i += 1
                 captured_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
 
-                # Check if there is a message from Detector that active camera change has happen
-                try:
-                    if self.detection_connection.poll():
-                        self.active_detection = self.detection_connection.recv()
-                        self.active_camera_id = self.active_detection.camera_id
-                finally:
-                    pass
+                # Delay rendering so that Detector can notify VideoMaker a bit earlier, before camera has switched
+                if time.time() >= captured_frame.timestamp - self.latency:
+                    # Check if there is a message from Detector that active camera change has happen
+                    try:
+                        if self.detection_connection.poll():
+                            self.active_detection = self.detection_connection.recv()
+                            self.active_camera_id = self.active_detection.camera_id
+                    finally:
+                        pass
 
-                if captured_frame is None:
-                    break
-                else:
-                    if captured_frame.camera.id == self.active_camera_id:
-                        #if self.active_detection is not None and self.debugging:
-                        #    self.draw_debug_info(captured_frame)
+                    if captured_frame is None:
+                        break
+                    else:
+                        if captured_frame.camera.id == self.active_camera_id:
+                            if self.active_detection is not None and self.debugging:
+                                self.draw_debug_info(captured_frame)
 
-                        writer.write(captured_frame.frame)
+                            writer.write(captured_frame.frame)
 
-                        if i % self.fps == 0:
-                            print("Output video: {}. Frames written {}".format(
-                                SharedFunctions.normalise_time(i, self.fps), i))
+                            if i % self.fps == 0:
+                                print("Output video: {}. Frames written {}".format(
+                                    SharedFunctions.normalise_time(i, self.fps), i))
 
         self.detection_connection.close()
         self.detection_connection = None
