@@ -4,7 +4,7 @@ __pycache__/
 *$py.class
 
 # C extensions
-*.so
+#*.so
 
 # Distribution / packaging
 .Python
@@ -104,5 +104,3 @@ venv.bak/
 .mypy_cache/
 
 .idea/
-/videos/1.mp4
-/videos/2.mp4
