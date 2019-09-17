@@ -65,64 +65,65 @@ class Detector(object):
 
                     start_time = time.time()
 
-                    # Run the AI detection, based on class id
-                    detections = net.detect(captured_frame.frame, True)
+                    if captured_frame.camera.id != self.active_camera.id:
+                        # Run the AI detection, based on class id
+                        detections = net.detect(captured_frame.frame, True)
 
-                    # Convert detections into balls
-                    balls = []
-                    for detection in detections:
-                        if detection.ClassID == self.class_id:
-                            balls.append(Detection(int(detection.Left),
-                                                   int(detection.Right),
-                                                   int(detection.Top),
-                                                   int(detection.Bottom),
-                                                   int(detection.Width),
-                                                   int(detection.Height),
-                                                   detection.Confidence,
-                                                   captured_frame.camera.id,
-                                                   int(captured_frame.snapshot_time) +
-                                                   captured_frame.frame_number / 10000))
+                        # Convert detections into balls
+                        balls = []
+                        for detection in detections:
+                            if detection.ClassID == self.class_id:
+                                balls.append(Detection(int(detection.Left),
+                                                       int(detection.Right),
+                                                       int(detection.Top),
+                                                       int(detection.Bottom),
+                                                       int(detection.Width),
+                                                       int(detection.Height),
+                                                       detection.Confidence,
+                                                       captured_frame.camera.id,
+                                                       int(captured_frame.snapshot_time) +
+                                                       captured_frame.frame_number / 10000))
 
-                    # Some logging for debug session
-                    if self.debugging:
-                        print("Detection took = {}".format(time.time() - start_time))
+                        # Some logging for debug session
+                        if self.debugging:
+                            print("Detection took = {}".format(time.time() - start_time))
+                            if len(balls) > 0:
+                                print("Detection details {}".format(jsonpickle.encode(balls)))
+                            self.logger.info("Time {}. Camera {}. Detection result - {} balls."
+                                             .format(captured_frame.timestamp,
+                                                     captured_frame.camera.id,
+                                                     len(balls)))
+                            if len(balls) == 1 and self.debugging:
+                                ballsizes.append(balls[0])
+
                         if len(balls) > 0:
-                            print("Detection details {}".format(jsonpickle.encode(balls)))
-                        self.logger.info("Time {}. Camera {}. Detection result - {} balls."
-                                         .format(captured_frame.timestamp,
-                                                 captured_frame.camera.id,
-                                                 len(balls)))
-                        if len(balls) == 1 and self.debugging:
-                            ballsizes.append(balls[0])
-
-                    if len(balls) > 0:
-                        # We declare the examining camera as an active one if there is a ball in the area it covers
-                        # but the ball is not in protected area
-                        for ball in balls:
-                            if Linq(self.polygons).any(
-                                    lambda p: p.camera_id == ball.camera_id and
-                                    p.detect and p.contains_ball(ball)) and \
-                                    not Linq(self.polygons).any(
+                            # We declare the examining camera as an active one if there is a ball in the area it covers
+                            # but the ball is not in protected area
+                            for ball in balls:
+                                if Linq(self.polygons).any(
                                         lambda p: p.camera_id == ball.camera_id and
-                                        (not p.detect) and p.contains_ball(ball)):
+                                        p.detect and p.contains_ball(ball)) and \
+                                        not Linq(self.polygons).any(
+                                            lambda p: p.camera_id == ball.camera_id and
+                                            (not p.detect) and p.contains_ball(ball)):
 
-                                if self.active_camera.id != ball.camera_id:
-                                    # Change active camera
-                                    self.active_camera = self.cameras[ball.camera_id - 1]
-                                    # Send message, which will be received by Recorder,
-                                    # and dispatched to all VideoRecorder instances
-                                    self.detection_connection.send(ball)
-                                    self.logger.info("Camera {} became active.".format(self.active_camera.id))
-                                    if self.debugging:
-                                        debug_thread = threading.Thread(target=self.draw_debug_info,
-                                                                        args=(captured_frame.clone(), ball))
-                                        debug_thread.start()
-                                break
+                                    if self.active_camera.id != ball.camera_id:
+                                        # Change active camera
+                                        self.active_camera = self.cameras[ball.camera_id - 1]
 
-                            # Preserve information about last detection, no matter, if we changed the camera or not
-                            camera = self.cameras[captured_frame.camera.id - 1]
-                            camera.last_detection = time.time()
-                    captured_frame.release()
+                                        # Send message to VideoMaker process
+                                        self.detection_connection.send(ball)
+                                        self.logger.info("Camera {} became active.".format(self.active_camera.id))
+                                        if self.debugging:
+                                            debug_thread = threading.Thread(target=self.draw_debug_info,
+                                                                            args=(captured_frame.clone(), ball))
+                                            debug_thread.start()
+                                    break
+
+                                # Preserve information about last detection, no matter, if we changed the camera or not
+                                camera = self.cameras[captured_frame.camera.id - 1]
+                                camera.last_detection = time.time()
+                        captured_frame.release()
 
             if self.debugging:
                 self.log_balls(ballsizes)
@@ -131,6 +132,7 @@ class Detector(object):
             print("ERROR: {}".format(ex))
         finally:
             self.detection_connection.close()
+            self.detection_connection = None
             self.video_queue.mark_as_done()
             print("Detector finished working.")
 

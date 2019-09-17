@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-import jetson.inference
-import jetson.utils
 import os
 import time
 import cv2
 from typing import List
+from Darknet import DarknetDetector
 
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -23,35 +22,34 @@ class DetectorTest(object):
         self.sports_ball_id = self.class_names.index(self.config.activity_detector["sports-ball"])
 
         # load the object detection network
-        net = jetson.inference.detectNet(self.config.activity_detector["network"],
-                                         [],
-                                         float(self.config.activity_detector["threshold"]))
+        net = DarknetDetector.DarknetDetector(
+            os.path.join(os.getcwd(), self.config.activity_detector["network-config"]),
+            os.path.join(os.getcwd(), self.config.activity_detector["network-weights"]),
+            os.path.join(os.getcwd(), self.config.activity_detector["coco-config"]),
+            (480, 270))
 
         started_at = time.time()
         detected_frames = 0
-        #size = (960, 544)
-        size = (480, 272)
-        for jpg_file in self.samples:
-            img = cv2.cvtColor(cv2.resize(cv2.imread(jpg_file), size), cv2.COLOR_RGB2RGBA)
-            cuda_image = jetson.utils.cudaFromNumpy(img)
-            detections = net.Detect(cuda_image, size[0], size[1])
-            if len(detections) > 0:
-                detected_frame = False
-                for detection in detections:
-                    if detection.ClassID == self.sports_ball_id:
-                        balls_identified += 1
-                        detected_frame = True
-                jetson.utils.cudaDeviceSynchronize()
+        for jpg_file in self.samples[:20]:
+            img = cv2.imread(jpg_file)
+            detections = net.detect(img, True)
+            if detections is not None:
+                if len(detections) > 0:
+                    detected_frame = False
+                    for detection in detections:
+                        if detection.ClassID == self.sports_ball_id:
+                            balls_identified += 1
+                            detected_frame = True
 
-                if detected_frame:
-                    detected_frames += 1
+                    if detected_frame:
+                        detected_frames += 1
 
-        print("GPU utilisation equals {} fps.".format(int(len(self.samples) / (time.time() - started_at))))
+        print("GPU utilisation equals {} fps.".format(int(20 / (time.time() - started_at))))
         print("Detected objects: {}".format(balls_identified))
-        print("Frames with the ball: {}/{}".format(detected_frames, len(self.samples)))
+        print("Frames with the ball: {}/{}".format(detected_frames, 20))
 
     def get_class_names(self) -> List[str]:
-        labels = self.config.activity_detector["labels"]
+        labels = self.config.activity_detector["coco-labels"]
         return open(labels).read().strip().split("\n")
 
 

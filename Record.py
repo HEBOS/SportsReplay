@@ -23,10 +23,9 @@ class Record(object):
         self.dispatch_lock = threading.Lock()
 
     def start_single_camera(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                            detection_connection: mp.connection.Connection, polygons: List[DefinedPolygon],
                             debugging: bool):
 
-        video = VideoRecorder(camera, ai_queue, video_queue, detection_connection, polygons, debugging)
+        video = VideoRecorder(camera, ai_queue, video_queue, debugging)
         video.start()
 
     def start_activity_detection(self, playground: int, ai_queue: MultiProcessingQueue,
@@ -43,8 +42,10 @@ class Record(object):
         detector.start()
 
     def start_video_making(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                           width: int, height: int, fps: int, debugging: bool):
-        video_maker = VideoMaker(playground, video_queue, output_video, width, height, fps, debugging)
+                           start_of_video_saving: float, detection_connection: mp.connection.Connection,
+                           polygons: List[DefinedPolygon], width: int, height: int, fps: int, debugging: bool):
+        video_maker = VideoMaker(playground, video_queue, output_video, start_of_video_saving,
+                                 detection_connection, polygons, width, height, fps, debugging)
         video_maker.start()
 
     def start(self, debugging):
@@ -54,6 +55,7 @@ class Record(object):
         playtime = int(config.common["playtime"])
         start_of_capture = time.time() + 15
         end_of_capture = start_of_capture + 15 + playtime
+        start_of_video_saving = time.time() + 15 + float(config.video_maker["save-delay"])
         video_addresses = str(config.recorder["video"]).split(",")
 
         # Ensure that root directory exists
@@ -110,8 +112,8 @@ class Record(object):
         output_video = SharedFunctions.get_output_video(video_making_path, building, playground, start_of_capture)
 
         # Define the pipes, for the communication between the processes
-        recorders_out_pipes = []
         detection_pipe_in, detection_pipe_out = mp.Pipe(duplex=False)
+        video_maker_pipe_in, video_maker_pipe_out = mp.Pipe(duplex=False)
 
         cameras = []
 
@@ -121,38 +123,35 @@ class Record(object):
             # If video source is not camera, but mp4 file, fix the path
             if ".mp4" in v:
                 source_path = "filesrc location={location} " \
-                              "! qtdemux name=demux demux.video_0 " \
+                              "! qtdemux " \
                               "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
-                              "! nvvidconv " \
-                              "! video/x-raw,format=RGBA,width={width},height={height},framerate={fps}/1 " \
+                              "! video/x-raw,format=NV12,width=1280,height=720,framerate={fps}/1 " \
                               "! videoconvert " \
-                              "! appsink".format(location=os.path.normpath(r"{}".format(v)),
-                                                 fps=fps,
-                                                 width=width,
-                                                 height=height)
-
+                              "! video/x-raw,format=BGR " \
+                              "! appsink sync=0".format(location=os.path.normpath(r"{}".format(v)),
+                                                        fps=fps,
+                                                        width=width,
+                                                        height=height)
 
             else:
-                source_path = "rtspsrc location={location} latency=2000 " \
+                source_path = "rtspsrc location={location} latency=0 " \
                               "! rtph264depay user-id={user} user-pw={password} " \
+                              "! capsfilter caps=video/x-h264,width={width}," \
+                              "height={height},framerate={fps} " \
+                              "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
-                              "! nvvidconv " \
-                              "! video/x-row,width={width},height={height},format=RGBA,framerate=(fraction){fps}/1 " \
-                              "! videoconvert " \
-                              "! appsink".format(location=v,
-                                                  fps=fps,
-                                                  width=width,
-                                                  height=height,
-                                                  user=rtsp_user,
-                                                  password=rtsp_password)
+                              "! video/x-raw,format=NV12,width=1280,height=720,framerate={fps}/1 " \
+                              "! appsink sync=0".format(location=v,
+                                                        fps=fps,
+                                                        width=width,
+                                                        height=height,
+                                                        user=rtsp_user,
+                                                        password=rtsp_password)
 
             print(source_path)
-            # Initiate the pipes
-            recorder_pipe_in, recorder_pipe_out = mp.Pipe(duplex=False)
-            recorders_out_pipes.append(recorder_pipe_out)
 
             # Define the cammera, and add it to the list of cameras
             camera = Camera(i, source_path, fps, cdfps, width, height,
@@ -164,8 +163,6 @@ class Record(object):
                                         args=(camera,
                                               ai_queue,
                                               video_queue,
-                                              recorder_pipe_in,
-                                              polygons,
                                               debugging)))
 
         # Create a process for activity detection
@@ -176,7 +173,8 @@ class Record(object):
 
         # Create a process for video rendering
         processes.append(mp.Process(target=self.start_video_making,
-                                    args=(playground, video_queue, output_video, width, height, fps, debugging)))
+                                    args=(playground, video_queue, output_video, start_of_video_saving,
+                                          video_maker_pipe_in, polygons, width, height, fps, debugging)))
 
         # Start the processes
         started_at = time.time()
@@ -185,7 +183,7 @@ class Record(object):
 
         # Start thread that deals with pipes, i.e. dispatches the messages
         dispatch_thread = threading.Thread(target=self.dispatch_detection_messages,
-                                           args=(detection_pipe_in, recorders_out_pipes))
+                                           args=(detection_pipe_in, video_maker_pipe_out))
         dispatch_thread.start()
 
         try:
@@ -232,8 +230,8 @@ class Record(object):
         shutil.rmtree(streaming_path)
         shutil.rmtree(video_making_path)
 
-    def dispatch_detection_messages(self, detection_connection: mp.connection.Connection,
-                                    recorders_connections: List[mp.connection.Connection]):
+    def dispatch_detection_messages(self, incomming_connection: mp.connection.Connection,
+                                    outgoing_connection: mp.connection.Connection):
         dispatching = True
         active_camera_id = 1
         while dispatching:
@@ -242,23 +240,21 @@ class Record(object):
 
             try:
                 # If there is any incomming message
-                if detection_connection.poll():
+                if incomming_connection.poll():
                     # Receive the message
-                    detection = detection_connection.recv()
+                    detection = incomming_connection.recv()
 
                     # If there is a change in camera activity, remember that, and dispatch the message to
-                    # VideoRecorder processes
+                    # VideoMaker processes
                     if detection.camera_id != active_camera_id:
                         active_camera_id = detection.camera_id
-                        for c in recorders_connections:
-                            c.send(detection)
+                        outgoing_connection.send(detection)
             finally:
                 pass
 
         # Do the cleanup
-        detection_connection.close()
-        for recorder_connection in recorders_connections:
-            recorder_connection.close()
+        incomming_connection.close()
+        outgoing_connection.close()
 
 
 if __name__ == "__main__":

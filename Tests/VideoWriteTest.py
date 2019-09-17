@@ -4,7 +4,6 @@ import time
 import cv2
 import gc
 import queue
-import jetson.utils
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 
@@ -27,55 +26,70 @@ class VideoWriteTest(object):
 
         input_pipeline = "filesrc location={location} " \
                          "! qtdemux " \
+                         "! queue " \
                          "! h264parse " \
                          "! omxh264dec " \
-                         "! nvvidconv " \
-                         "! video/x-raw,format=RGBA,width={width},height={height},framerate={fps}/1 " \
+                         "! video/x-raw,format=NV12 " \
                          "! videoconvert " \
-                         "! appsink".format(location=os.path.normpath(r"{}".format(video_addresses[0])),
+                         "! video/x-raw,format=BGR " \
+                         "! appsink sync=0".format(location=os.path.normpath(r"{}".format(video_addresses[0])),
                                             fps=fps,
                                             width=width,
                                             height=height)
 
+        #input_pipeline = input_pipeline.replace("(", "\\(").replace(")", "\\)")
+
         output_pipeline = "appsrc " \
-                          "! autovideoconvert " \
-                          "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
+                          "! videoconvert " \
+                          "! video/x-raw,width=1280,height=720,framerate=25/1,format=I420 " \
                           "! omxh264enc " \
-                          "! video/x-h264,stream-format=byte-stream " \
                           "! h264parse " \
                           "! qtmux " \
-                          "! filesink location={video}".format(width=width,
-                                                               height=height,
-                                                               fps=fps,
-                                                               video="output.mp4v")
+                          "! filesink location={video} ".format(video="output.mp4v",
+                                                                fps=fps,
+                                                                width=width,
+                                                                height=height)
+
+        output_pipeline = output_pipeline.replace("(", "\\(").replace(")", "\\)")
         print("VideoCapture:")
         print("-----------------------------------------------------------------------------------------------")
         print(input_pipeline)
         capture = cv2.VideoCapture(input_pipeline, cv2.CAP_GSTREAMER)
+
+        q = queue.Queue(maxsize=1000)
+        started_at = time.time()
+        j = 0
+        while time.time() - started_at < 10:
+            j += 1
+            grabbed, img = capture.read()
+            if grabbed:
+                try:
+                    print("Grabbed {}".format(j))
+                    q.put(img)
+                except:
+                    break
+
         print("")
         print("")
         print("VideoWriter:")
         print(output_pipeline)
         print("-----------------------------------------------------------------------------------------------")
-        writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'MP4V'), fps, (width, height), True)
+        # cv2.VideoWriter_fourcc(*'H264'),
 
-        q = queue.Queue(maxsize=10000)
-        started_at = time.time()
-        while time.time() - started_at < 10:
-            grabbed, img = capture.read()
-            if grabbed:
-                cv2.waitKey(1)
-                q.put(img)
+        writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'mp4v'),
+                                 fps, (width, height), True)
 
         started_at = time.time()
         i = 0
-        while True:
+        while i < 100:
             i += 1
-            writer.write(q.get())
-            if i >= 250:
+            im = q.get()
+            print("writing...")
+            writer.write(im)
+            if i >= 100:
                 break
 
-        print("Write utilisation equals {} fps.".format((time.time() - started_at) / 250))
+        print("Write utilisation equals {} fps.".format((time.time() - started_at) / 100))
 
         capture.release()
         writer.release()
