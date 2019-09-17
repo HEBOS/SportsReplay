@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
-import cv2
-import json
-from Shared.SharedFunctions import SharedFunctions
+import time
 import Shared.Camera as Camera
+import numpy as np
 
 
 class CapturedFrame(object):
-    def __init__(self, camera: Camera, frame: cv2.UMat, file_path: str, filename: str, frame_number: int):
+    def __init__(self, camera: Camera, frame_number: int, snapshot_time: time, frame: np.array):
         self.camera = camera
-        self.frame = frame
-        self.filePath = file_path
-        self.filename = filename
         self.frame_number = frame_number
-        self.json = None
+        self.timestamp = int(snapshot_time) + float(frame_number / 1000)
+        self.snapshot_time = snapshot_time
+        self.frame = frame
 
-    def save_file(self):
-        cv2.imwrite(self.filePath, self.frame)
+    def clone(self):
+        return CapturedFrame(self.camera, self.frame_number, self.snapshot_time, np.copy(self.frame))
 
-    def save_json(self):
-        json_file_path = SharedFunctions.get_json_file_path(self.filePath)
-        with open(json_file_path, 'w', encoding='utf-8') as f:
-            json.dump(self.json, f, ensure_ascii=False, indent=4)
+    def release(self):
+        self.frame = None

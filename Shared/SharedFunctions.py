@@ -2,6 +2,8 @@
 import os
 import time
 import ntpath
+import cv2
+from Shared.Point import Point
 from typing import List
 
 
@@ -16,21 +18,13 @@ class SharedFunctions(object):
                               timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
 
     @staticmethod
-    def get_recording_file_path(path: str, current_time: int, frame_number: int):
-        return os.path.normpath(
-            r"{target_path}/frame_{currentTime}_{frameNumber}.jpg".format(
-                target_path=path,
-                currentTime=current_time,
-                frameNumber=str(frame_number).zfill(4)
-            ))
-
-    @staticmethod
-    def get_recording_file_name(current_time: int, frame_number: int):
-        return os.path.normpath(
-            r"frame_{currentTime}_{frameNumber}.jpg".format(
-                currentTime=current_time,
-                frameNumber=str(frame_number).zfill(4)
-            ))
+    def get_output_video(root_path: str, building: int, playground: int, current_time: float):
+        return os.path\
+            .normpath(r"{path}/{building}-{playground}-{timestamp}.mp4v"
+                      .format(path=root_path,
+                              building=str(building).zfill(5),
+                              playground=str(playground).zfill(3),
+                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
 
     @staticmethod
     def get_json_file_path(file_path: str):
@@ -46,6 +40,11 @@ class SharedFunctions(object):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(content)
             f.close()
+
+    @staticmethod
+    def read_text_file(file_path: str) -> str:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
 
     @staticmethod
     def create_flag_file(root_path: str):
@@ -70,4 +69,34 @@ class SharedFunctions(object):
     @staticmethod
     def get_time_from_file(file_path: str) -> str:
         return SharedFunctions.get_file_name_only(file_path).replace("frame_", "").replace("_", ".")
+
+    @staticmethod
+    def get_class_id(class_names_file_path: str, target_class_name) -> int:
+        return open(class_names_file_path).read().strip().split("\n").index(target_class_name)
+
+    @staticmethod
+    def normalise_time(frame_number: int, fps: int) -> str:
+        total_seconds = int(frame_number / fps)
+        hours = int(total_seconds / 3600)
+        minutes = int(int(total_seconds - (hours * 3600)) / 60)
+        seconds = total_seconds - (hours * 3600) - (minutes * 60)
+
+        return "{}:{}:{}".format(str(int(hours)).zfill(2),
+                                 str(minutes).zfill(2),
+                                 str(seconds).zfill(2))
+
+    @staticmethod
+    def get_points_array(points: List[Point], ratio=1):
+        contours: List[List[int]] = []
+        for p in points:
+            contours.append([int(p.x * ratio), int(p.y * ratio)])
+        return contours
+
+    @staticmethod
+    def release_open_cv():
+        cv2.waitKey(1)
+        cv2.destroyAllWindows()
+        for i in range(1, 5):
+            cv2.waitKey(1)
+
 

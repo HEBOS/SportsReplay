@@ -1,0 +1,6 @@
+classes= 1
+train  = /networks/yolov3-tiny/trainvalno5k.txt
+valid  = coco_testdev
+names = networks/yolov3-tiny/coco.names
+backup = /networks/yolov3-tiny/backup
+eval=coco

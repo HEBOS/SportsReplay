@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 import os
 import logging
-
 from Shared.Configuration import Configuration
+from Shared.SharedFunctions import SharedFunctions
 
 
 class LogHandler(object):
     def __init__(self, application):
         config = Configuration()
-        path = config.common["log-files"]
-
+        path = os.path.join(config.common["dump-path"], config.common["log-files"])
+        SharedFunctions.ensure_directory_exists(path)
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
 
@@ -35,13 +35,13 @@ class LogHandler(object):
 
     def warning(self, message):
         print(message)
-        # self.logger.warning(message)
+        self.logger.warning(message)
 
     def error(self, message):
         print(message)
-        # self.logger.error(message)
+        self.logger.error(message)
 
     def info(self, message):
         print(message)
-        # self.logger.info(message)
+        self.logger.info(message)
 
