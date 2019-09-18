@@ -52,13 +52,18 @@ class VideoMaker(object):
                                  True)
 
         i = 0
+        warmed_up = False
+        last_job = time.time()
         while True:
             if not self.video_queue.is_empty():
+                last_job = time.time()
+                warmed_up = True
                 i += 1
+
                 captured_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
 
                 # Delay rendering so that Detector can notify VideoMaker a bit earlier, before camera has switched
-                if time.time() >= captured_frame.timestamp - self.latency:
+                if captured_frame is not None and time.time() >= captured_frame.timestamp - self.latency:
                     # Check if there is a message from Detector that active camera change has happen
                     try:
                         if self.detection_connection.poll():
@@ -79,6 +84,12 @@ class VideoMaker(object):
                             if i % self.fps == 0:
                                 print("Output video: {}. Frames written {}".format(
                                     SharedFunctions.normalise_time(i, self.fps), i))
+            else:
+                # This ensures, that this process exits, if it has processed at least one frame,
+                # and hasn't got any other during the next 5 seconds.
+                if warmed_up:
+                    if time.time() - last_job > 5:
+                        break
 
         self.detection_connection.close()
         self.detection_connection = None

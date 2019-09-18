@@ -37,26 +37,28 @@ class Detector(object):
         self.detection_connection = detection_connection
         self.polygons = polygons
         self.debugging = debugging
-        self.detecting = False
         self.active_camera = cameras[0]
 
         # Logger
         self.logger = LogHandler("detector")
 
     def start(self):
-        self.detecting = True
-
         # load the object detection network
         net: DarknetDetector = DarknetDetector(self.network_config_path,
                                                self.network_weights_path,
                                                self.coco_config_path,
                                                (self.cameras[0].width, self.cameras[0].height))
-
         try:
-            ballsizes: List[Detection] = []
-            while self.detecting:
+            ball_sizes: List[Detection] = []
+
+            warmed_up = False
+            last_job = time.time()
+            while True:
                 # We only proceed, if there is anything in the active camera queue
                 if not self.ai_queue.is_empty():
+                    last_job = time.time()
+                    warmed_up = True
+
                     captured_frame: CapturedFrame = self.ai_queue.dequeue("Ai Queue {}".format(self.active_camera.id))
 
                     # We are stopping detection if we have reached the end of the queue
@@ -94,7 +96,7 @@ class Detector(object):
                                                      captured_frame.camera.id,
                                                      len(balls)))
                             if len(balls) == 1 and self.debugging:
-                                ballsizes.append(balls[0])
+                                ball_sizes.append(balls[0])
 
                         if len(balls) > 0:
                             # We declare the examining camera as an active one if there is a ball in the area it covers
@@ -124,9 +126,15 @@ class Detector(object):
                                 camera = self.cameras[captured_frame.camera.id - 1]
                                 camera.last_detection = time.time()
                         captured_frame.release()
+                else:
+                    # This ensures, that this process exits, if it has processed at least one frame,
+                    # and hasn't got any other during the next 5 seconds.
+                    if warmed_up:
+                        if time.time() - last_job > 5:
+                            break
 
             if self.debugging:
-                self.log_balls(ballsizes)
+                Detector.log_balls(ball_sizes)
             print("Detector - normal exit.")
         except Exception as ex:
             print("ERROR: {}".format(ex))
@@ -136,11 +144,12 @@ class Detector(object):
             self.video_queue.mark_as_done()
             print("Detector finished working.")
 
-    def log_balls(self, ball_sizes: List[Detection]):
-        ballsizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tconfidence"
+    @staticmethod
+    def log_balls(ball_sizes: List[Detection]):
+        ball_sizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tconfidence"
                                       "\tcamera\tframe_number\r\n"]
         for bs in ball_sizes:
-            ballsizes_lines.append(
+            ball_sizes_lines.append(
                 "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\r\n".format(bs.height,
                                                                 bs.width,
                                                                 bs.left,
@@ -152,7 +161,7 @@ class Detector(object):
                                                                 bs.frame_number)
 
             )
-        SharedFunctions.create_list_file(r"/home/sportsreplay/tmp/recording/detected-balls.txt", ballsizes_lines)
+        SharedFunctions.create_list_file(r"/home/sportsreplay/tmp/recording/detected-balls.txt", ball_sizes_lines)
 
     def draw_debug_info(self, captured_frame: CapturedFrame, ball: Detection):
         # Draw protected area first
