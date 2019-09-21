@@ -75,8 +75,8 @@ class Record(object):
         SharedFunctions.ensure_directory_exists(streaming_path)
 
         # Create queues and lists
-        ai_queue = MultiProcessingQueue(maxsize=10)
-        video_queue = MultiProcessingQueue(maxsize=100)
+        ai_queue = MultiProcessingQueue(maxsize=200)
+        video_queue = MultiProcessingQueue(maxsize=200)
         processes = []
         i = 0
 
@@ -127,7 +127,7 @@ class Record(object):
                               "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
-                              "! video/x-raw,format=NV12,width=1280,height=720,framerate={fps}/1 " \
+                              "! video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1 " \
                               "! videoconvert " \
                               "! video/x-raw,format=BGR " \
                               "! appsink sync=0".format(location=os.path.normpath(r"{}".format(v)),
@@ -136,20 +136,24 @@ class Record(object):
                                                         height=height)
 
             else:
-                source_path = "rtspsrc location={location} latency=0 " \
-                              "! rtph264depay user-id={user} user-pw={password} " \
-                              "! capsfilter caps=video/x-h264,width={width}," \
-                              "height={height},framerate={fps} " \
+                source_path = "rtspsrc location={location} latency=2000 " \
+                              " user-id={user} user-pw={password} " \
+                              "! rtph264depay " \
+                              "! video/x-h264,width={width},height={height},framerate={fps}/1 " \
                               "! queue " \
                               "! h264parse " \
                               "! omxh264dec " \
-                              "! video/x-raw,format=NV12,width=1280,height=720,framerate={fps}/1 " \
-                              "! appsink sync=0".format(location=v,
-                                                        fps=fps,
-                                                        width=width,
-                                                        height=height,
-                                                        user=rtsp_user,
-                                                        password=rtsp_password)
+                              "! video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1 " \
+                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 " \
+                              "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
+                              "! videoconvert " \
+                              "! video/x-raw,format=BGR " \
+                              "! appsink".format(location=v,
+                                                 fps=fps,
+                                                 width=width,
+                                                 height=height,
+                                                 user=rtsp_user,
+                                                 password=rtsp_password)
 
             print(source_path)
 

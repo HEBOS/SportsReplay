@@ -44,24 +44,19 @@ class VideoRecorder(object):
 
             # Do until it is expected
             while (time.time() < self.camera.end_of_capture) and self.capturing:
-
-                # Wait for the next time trigger
-                while time.time() - snapshot_time <= 1 / self.camera.fps:
-                    pass
-
-                frame_number += 1
-                if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
-                    frame_number = 1
-
-                snapshot_time = time.time()
-
                 # Grab the next frame. Used for more precise results.
                 grabbed = capture.grab()
-
-                # Determine if the frame is a detection candidate.
-                detection_candidate = frame_number % self.detection_frequency == 1
-
                 if grabbed:
+                    frame_number += 1
+                    if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
+                        frame_number = 1
+
+                    snapshot_time = time.time()
+
+                    # Determine if the frame is a detection candidate.
+                    detection_candidate = frame_number % self.detection_frequency == 1
+
+                    # Get the frame itself
                     ref, frame = capture.retrieve()
 
                     # Detection candidate should be handled by Detector, that will send an active camera change

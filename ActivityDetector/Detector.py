@@ -53,6 +53,7 @@ class Detector(object):
 
             warmed_up = False
             last_job = time.time()
+            last_camera_swapping = time.time() - 2
             while True:
                 # We only proceed, if there is anything in the active camera queue
                 if not self.ai_queue.is_empty():
@@ -110,16 +111,18 @@ class Detector(object):
                                             (not p.detect) and p.contains_ball(ball)):
 
                                     if self.active_camera.id != ball.camera_id:
-                                        # Change active camera
-                                        self.active_camera = self.cameras[ball.camera_id - 1]
+                                        # Change active camera, but only after 1 second
+                                        if time.time() - last_camera_swapping > 1:
+                                            self.active_camera = self.cameras[ball.camera_id - 1]
+                                            last_camera_swapping = time.time()
 
-                                        # Send message to VideoMaker process
-                                        self.detection_connection.send(ball)
-                                        self.logger.info("Camera {} became active.".format(self.active_camera.id))
-                                        if self.debugging:
-                                            debug_thread = threading.Thread(target=self.draw_debug_info,
-                                                                            args=(captured_frame.clone(), ball))
-                                            debug_thread.start()
+                                            # Send message to VideoMaker process
+                                            self.detection_connection.send(ball)
+                                            self.logger.info("Camera {} became active.".format(self.active_camera.id))
+                                            if self.debugging:
+                                                debug_thread = threading.Thread(target=self.draw_debug_info,
+                                                                                args=(captured_frame.clone(), ball))
+                                                debug_thread.start()
                                     break
 
                                 # Preserve information about last detection, no matter, if we changed the camera or not
