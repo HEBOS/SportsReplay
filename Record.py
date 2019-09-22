@@ -22,13 +22,15 @@ class Record(object):
         self.dispatching = True
         self.dispatch_lock = threading.Lock()
 
-    def start_single_camera(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
+    @staticmethod
+    def start_single_camera(camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
                             debugging: bool):
 
         video = VideoRecorder(camera, ai_queue, video_queue, debugging)
         video.start()
 
-    def start_activity_detection(self, playground: int, ai_queue: MultiProcessingQueue,
+    @staticmethod
+    def start_activity_detection(playground: int, ai_queue: MultiProcessingQueue,
                                  video_queue: MultiProcessingQueue, class_id: int,
                                  network_config: str, network_weights: str, coco_config: str,
                                  width: int, height: int,
@@ -41,7 +43,8 @@ class Record(object):
 
         detector.start()
 
-    def start_video_making(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
+    @staticmethod
+    def start_video_making(playground: int, video_queue: MultiProcessingQueue, output_video: str,
                            latency: float, detection_connection: mp.connection.Connection,
                            polygons: List[DefinedPolygon], width: int, height: int, fps: int, debugging: bool):
         video_maker = VideoMaker(playground, video_queue, output_video, latency,
@@ -157,7 +160,7 @@ class Record(object):
 
             print(source_path)
 
-            # Define the cammera, and add it to the list of cameras
+            # Define the camera, and add it to the list of cameras
             camera = Camera(i, source_path, fps, cdfps, width, height,
                             client, building, playground, session_path, start_of_capture, end_of_capture)
             cameras.append(camera)
@@ -243,7 +246,7 @@ class Record(object):
                 dispatching = self.dispatching
 
             try:
-                # If there is any incomming message
+                # If there is any incoming message
                 if incomming_connection.poll():
                     # Receive the message
                     detection = incomming_connection.recv()
@@ -262,9 +265,9 @@ class Record(object):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Sports Replay Recorder.",
+    parser = argparse.ArgumentParser(description="Sports Replay Recorder",
                                      formatter_class=argparse.RawTextHelpFormatter,
-                                     epilog="Please run using: python3 Recorder.py --debug true")
+                                     epilog="Please run using: python3 Record.py --debug true")
 
     parser.add_argument("--debug", type=int, default=0, help="True for debugging.")
     opt, argv = parser.parse_known_args()
