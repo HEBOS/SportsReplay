@@ -19,7 +19,7 @@ class FtpUploader(object):
             ftp.login(user=self._username, passwd=self._password)
             self._total_bytes = os.path.getsize(source_path)
             with open(source_path, 'rb') as fp:
-                ftp.storbinary(cmd='STOR ' + target_file_name, fp=fp, callback=self.report_progress)
+                ftp.storbinary(cmd='STOR ' + target_file_name, fp=fp, callback=self.report_progress, blocksize=102400)
 
             if create_terminator_file:
                 with open(source_path + ".ready", 'w+') as fp:
