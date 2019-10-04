@@ -14,6 +14,7 @@ class Configuration(object):
         self.video_maker = {}
         self.common = {}
         self.pi_computer = {}
+        self.api = {}
 
         # for debugging purposes only
         if platform.system() == "Windows":
@@ -39,3 +40,5 @@ class Configuration(object):
                     self.pi_computer[option] = config.get(section, option)
                 if section == "common":
                     self.common[option] = config.get(section, option)
+                if section == "api":
+                    self.api[option] = config.get(section, option)

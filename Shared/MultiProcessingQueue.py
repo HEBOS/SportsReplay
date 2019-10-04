@@ -10,12 +10,10 @@ class MultiProcessingQueue(queues.Queue):
         return self.qsize() == 0
 
     def dequeue(self, name):
-        print("{} size {}".format(name, self.qsize()))
         return self.get()
 
     def enqueue(self, obj, name):
         self.put_nowait(obj)
-        print("{} size {}".format(name, self.qsize()))
 
     def mark_as_done(self):
         self.put_nowait(None)

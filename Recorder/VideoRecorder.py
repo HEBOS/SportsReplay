@@ -1,28 +1,32 @@
 import threading
 import time
-import logging
 import math
 import cv2
+import multiprocessing as mp
 import numpy as np
-from Shared.LogHandler import LogHandler
+import socket
+import errno
+import os
+import sys
 from Shared.SharedFunctions import SharedFunctions
 from Shared.Camera import Camera
 from Shared.CapturedFrame import CapturedFrame
 from Shared.MultiProcessingQueue import MultiProcessingQueue
+from Shared.RecordScreenInfo import RecordScreenInfo
+from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
+from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 
 
 class VideoRecorder(object):
     def __init__(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                 debugging: bool):
+                 screen_connection: mp.connection.Connection, debugging: bool):
+        self.init_stdout = sys.stdout
         self.camera = camera
         self.ai_queue = ai_queue
         self.video_queue = video_queue
         self.debugging = debugging
         self.detection_frequency = math.floor(camera.fps / camera.cdfps)
-
-        # Logger
-        self.logger = LogHandler("recording-camera-{}".format(camera.id))
-        self.logger.info('Camera {}, on playground {} has started recording.'.format(camera.id, camera.playground))
+        self.screen_connection = screen_connection
 
         self.capturing = False
         self.capture_lock = threading.Lock()
@@ -33,7 +37,27 @@ class VideoRecorder(object):
         # Sync the start with other cameras, so they start at the same time
         while self.camera.start_of_capture > time.time():
             time.sleep(.010)
-        print("Expected start {}. Started at {}".format(self.camera.start_of_capture, time.time()))
+
+        try:
+            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_START_SCHEDULED,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   time.strftime("%Y-%m-%d-%H-%M",
+                                                                                 time.localtime(
+                                                                                     self.camera.start_of_capture))),
+                                         RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_STARTED,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   time.strftime("%Y-%m-%d-%H-%M",
+                                                                                 time.localtime(time.time()))),
+                                         RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_END_SCHEDULED,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   time.strftime("%Y-%m-%d-%H-%M",
+                                                                                 time.localtime(
+                                                                                     self.camera.end_of_capture)))
+                                         ])
+        except EOFError:
+            pass
+        except socket.error as e:
+            pass
 
         capture = None
         try:
@@ -68,30 +92,76 @@ class VideoRecorder(object):
                                                        snapshot_time,
                                                        np.copy(frame))
                         self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
+                        self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.AI_QUEUE_COUNT,
+                                                                               RecordScreenInfoOperation.SET,
+                                                                               self.ai_queue.qsize())])
 
                     # Pass it to VideoMaker process
                     self.video_queue.enqueue(CapturedFrame(self.camera,
                                                            frame_number,
                                                            snapshot_time,
                                                            frame), "Video Queue")
+                    self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           self.video_queue.qsize())])
 
+            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   "Camera {}, on playground {} finished recording.".
+                                                                   format(self.camera.id, self.camera.playground))])
+
+            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   "Expected ending {}. Ending at {}".
+                                                                   format(self.camera.end_of_capture, time.time()))])
+        except EOFError:
+            pass
+        except socket.error as e:
+            if e.errno != errno.EPIPE:
+                # Not a broken pipe
+                raise
         except cv2.error as e:
             self.capturing = False
-            self.logger.error("Camera {}, on playground {} is not responding."
-                              .format(self.camera.id, self.camera.playground))
+            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,
+                                                                   RecordScreenInfoOperation.ADD,
+                                                                   1),
+                                         RecordScreenInfoEventItem(RecordScreenInfo.ERROR_LOG,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   "Camera {}, on playground {} is not responding.".
+                                                                   format(self.camera.id, self.camera.playground))])
+        except Exception as ex:
+            self.capturing = False
+            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,
+                                                                   RecordScreenInfoOperation.ADD,
+                                                                   1),
+                                         RecordScreenInfoEventItem(RecordScreenInfo.ERROR_LOG,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   SharedFunctions.get_exception_info(ex))])
         finally:
-            if capture is not None:
-                capture.release()
-            SharedFunctions.release_open_cv()
-            self.ai_queue.mark_as_done()
-            self.video_queue.mark_as_done()
-            self.ai_queue = None
-            self.video_queue = None
-            print("Camera {}, on playground {} finished recording."
-                  .format(self.camera.id, self.camera.playground))
-            print("Expected ending {}. Ending at {}".format(self.camera.end_of_capture, time.time()))
+            try:
+                self.screen_connection.close()
+                self.screen_connection = None
+                if capture is not None:
+                    capture.release()
+                SharedFunctions.release_open_cv()
+                self.ai_queue.mark_as_done()
+                self.video_queue.mark_as_done()
+                self.ai_queue = None
+                self.video_queue = None
+            except EOFError:
+                pass
+            except socket.error as e:
+                pass
+            except Exception as ex:
+                print(ex)
 
     def cv2error(self):
-        self.logger.error("Camera {}, on playground {} is not responding."
-                          .format(self.camera.id, self.camera.playground))
+        self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,
+                                                               RecordScreenInfoOperation.ADD,
+                                                               1),
+                                     RecordScreenInfoEventItem(RecordScreenInfo.ERROR_LOG,
+                                                               RecordScreenInfoOperation.SET,
+                                                               "Camera {}, on playground {} is not responding."
+                                                               .format(self.camera.id, self.camera.playground))
+                                     ])
 
