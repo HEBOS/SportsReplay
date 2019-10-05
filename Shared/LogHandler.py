@@ -15,7 +15,8 @@ from Shared.RecordHeartBeat import RecordHeartBeat
 class LogHandler(object):
     def __init__(self, application: str, planned_start_time: time):
         config = Configuration()
-        self.post_url = config.api["base-url"] + config.api["log"]
+        self.heart_beat_post_url = config.api["base-url"] + config.api["heartbeat"]
+        self.log_post_url = config.api["base-url"] + config.api["log"]
         self.playground = config.common["playground"]
         self.planned_start_time = planned_start_time
         self.post_queue = queue.Queue()
@@ -55,6 +56,15 @@ class LogHandler(object):
         formatted_message = LogHandler.format_message(message)
         self.update_heart_beat(message)
         self.logger.error(formatted_message)
+        try:
+            error_data = {'playgroundId': self.playground,
+                          'plannedStartTime': SharedFunctions.to_post_time(self.planned_start_time),
+                          'error': message}
+            requests.post(url=self.log_post_url, information=error_data)
+            pass
+        except:
+            pass
+
 
     def info(self, message: RecordScreenInfoEventItem):
         formatted_message = LogHandler.format_message(message)
@@ -89,7 +99,7 @@ class LogHandler(object):
 
                 with self.heart_beat_lock:
                     try:
-                        requests.post(url=self.post_url, information=self.heart_beat.to_post_body())
+                        requests.post(url=self.heart_beat_post_url, information=self.heart_beat.to_post_body())
                         pass
                     except:
                         pass
