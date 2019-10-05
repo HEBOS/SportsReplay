@@ -81,7 +81,7 @@ class Detector(object):
 
                     if captured_frame.camera.id != self.active_camera.id:
                         # Run the AI detection, based on class id
-                        detections = net.detect(captured_frame.frame, False)
+                        detections = net.detect(captured_frame.frame, True)
 
                         # Convert detections into balls
                         balls = []

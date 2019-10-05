@@ -103,7 +103,10 @@ class VideoRecorder(object):
                                                            frame), "Video Queue")
                     self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
                                                                            RecordScreenInfoOperation.SET,
-                                                                           self.video_queue.qsize())])
+                                                                           self.video_queue.qsize()),
+                                                 RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           self.camera.id)])
 
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                                                    RecordScreenInfoOperation.SET,

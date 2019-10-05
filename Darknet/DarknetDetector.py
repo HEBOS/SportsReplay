@@ -34,7 +34,6 @@ class DarknetDetector(object):
             detection.Bottom *= self.scaleY
             detection.Height *= self.scaleY
 
-
         if display_results:
             print("")
             print("")

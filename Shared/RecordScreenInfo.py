@@ -14,7 +14,7 @@ class RecordScreenInfo(object):
     VR_RECORDING_STARTED: int = 8
     VR_RECORDING_END_SCHEDULED: int = 9
     VR_TOTAL_CAMERAS: int = 10
-    VR_QUEUE_COUNT: int = 12
+    VR_HEART_BEAT: int = 12
     VR_ACTIVE_CAMERA: int = 13
     VM_EXCEPTIONS: int = 14
     VM_WRITTEN_FRAMES: int = 15
@@ -42,7 +42,7 @@ class RecordScreenInfo(object):
             TerminalItem(terminal, self.VR_RECORDING_STARTED, "VR - Recording started: ", 5),
             TerminalItem(terminal, self.VR_RECORDING_END_SCHEDULED, "VR - Recording end scheduled: ", 5),
             TerminalItem(terminal, self.VR_TOTAL_CAMERAS, "VR - Total Cameras: ", 5),
-            TerminalItem(terminal, self.VR_QUEUE_COUNT, "VR - Queue: ", 5),
+            TerminalItem(terminal, self.VR_HEART_BEAT, "VR - Live: ", 5),
             TerminalItem(terminal, self.VR_ACTIVE_CAMERA, "VR - Active Camera: ", 5),
             TerminalItem(terminal, self.VM_EXCEPTIONS, "VM - Exceptions: ", 5),
             TerminalItem(terminal, self.VM_WRITTEN_FRAMES, "VM - Written Frames: ", 5),
@@ -88,7 +88,7 @@ class RecordScreenInfo(object):
         if enum_value == 10:
             return "VR_TOTAL_CAMERAS"
         if enum_value == 12:
-            return "VR_QUEUE_COUNT"
+            return "VR_HEART_BEAT"
         if enum_value == 13:
             return "VR_ACTIVE_CAMERA"
         if enum_value == 14:

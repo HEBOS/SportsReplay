@@ -33,8 +33,8 @@ class Record(object):
         self.dumping_screen_information_lock = threading.Lock()
         self.terminal = EasyTerminal()
         self.screen_info = RecordScreenInfo(self.terminal)
-        self.booked_start_time = SharedFunctions.booked_start_time(hour, minute)
-        self.logger = LogHandler("recorder", self.booked_start_time)
+        self.planned_start_time = SharedFunctions.planned_start_time(hour, minute)
+        self.logger = LogHandler("recorder", self.planned_start_time)
 
     @staticmethod
     def start_single_camera(camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
@@ -98,8 +98,6 @@ class Record(object):
         i = 0
 
         # Get main configuration settings
-        client = int(self.config.common["client"])
-        building = int(self.config.common["building"])
         playground = int(self.config.common["playground"])
         fps = int(self.config.recorder["fps"])
         cdfps = float(self.config.activity_detector["cdfps"])
@@ -123,13 +121,12 @@ class Record(object):
 
         # Ensure session directory exists
         session_path = SharedFunctions.get_recording_path(recording_path,
-                                                          building,
                                                           playground,
-                                                          self.booked_start_time)
+                                                          self.planned_start_time)
         SharedFunctions.ensure_directory_exists(session_path)
 
         # Get output video path
-        output_video = SharedFunctions.get_output_video(video_making_path, building, playground, start_of_capture)
+        output_video = SharedFunctions.get_output_video(video_making_path, playground, self.planned_start_time)
 
         # Define the pipes, for the communication between the processes
         detection_pipe_in, detection_pipe_out = mp.Pipe(duplex=False)
@@ -180,7 +177,7 @@ class Record(object):
 
             # Define the camera, and add it to the list of cameras
             camera = Camera(i, source_path, fps, cdfps, width, height,
-                            client, building, playground, session_path, start_of_capture, end_of_capture)
+                            playground, session_path, self.planned_start_time, start_of_capture, end_of_capture)
             cameras.append(camera)
 
             # Add pipe connection for dumping screen messages

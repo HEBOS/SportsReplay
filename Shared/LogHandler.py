@@ -9,21 +9,22 @@ from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfo import RecordScreenInfo
+from Shared.RecordHeartBeat import RecordHeartBeat
 
 
 class LogHandler(object):
-    def __init__(self, application: str, booked_start_time: time):
+    def __init__(self, application: str, planned_start_time: time):
         config = Configuration()
         self.post_url = config.api["base-url"] + config.api["log"]
-        self.client = config.common["client"]
-        self.building = config.common["building"]
         self.playground = config.common["playground"]
-        self.booked_start_time = booked_start_time
+        self.planned_start_time = planned_start_time
         self.post_queue = queue.Queue()
         self.force_post_complete = False
         self.posting = True
         self.postman = threading.Thread(target=self.post)
         self.postman.start()
+        self.heart_beat_lock = threading.Lock()
+        self.heart_beat = RecordHeartBeat(self.playground, self.planned_start_time)
 
         path = os.path.join(config.common["dump-path"], config.common["log-files"])
         SharedFunctions.ensure_directory_exists(path)
@@ -52,13 +53,24 @@ class LogHandler(object):
 
     def error(self, message: RecordScreenInfoEventItem):
         formatted_message = LogHandler.format_message(message)
+        self.update_heart_beat(message)
         self.logger.error(formatted_message)
-        self.post_queue.put((time.time(), formatted_message))
 
-    def info(self, message):
+    def info(self, message: RecordScreenInfoEventItem):
         formatted_message = LogHandler.format_message(message)
+        self.update_heart_beat(message)
         self.logger.info(formatted_message)
-        self.post_queue.put((time.time(), formatted_message))
+
+    def update_heart_beat(self, message: RecordScreenInfoEventItem):
+        with self.heart_beat_lock:
+            if message.type == RecordScreenInfo.VM_IS_LIVE:
+                self.heart_beat.set_video_maker(time.time())
+            elif message.type == RecordScreenInfo.VR_HEART_BEAT and int(message.value) == 1:
+                self.heart_beat.set_video_recorder_1(time.time())
+            elif message.type == RecordScreenInfo.VR_HEART_BEAT and int(message.value) == 2:
+                self.heart_beat.set_video_recorder_2(time.time())
+            elif message.type == RecordScreenInfo.AI_IS_LIVE:
+                self.heart_beat.set_detector(time.time())
 
     @staticmethod
     def format_message(message: RecordScreenInfoEventItem):
@@ -75,14 +87,9 @@ class LogHandler(object):
                 # This is to force exit, after stop_posting has been requested
                 self.posting = False
 
-                if self.post_queue.qsize() > 0:
-                    messages = []
-                    while self.post_queue.qsize() > 0:
-                        messages.append(self.post_queue.get())
-                    data = {'client': self.client,
-                            'building': self.building,
-                            'playground': self.playground,
-                            'timestamp': self.booked_start_time,
-                            'messages': messages}
-                    #requests.post(url=self.post_url, information=data)
-
+                with self.heart_beat_lock:
+                    try:
+                        requests.post(url=self.post_url, information=self.heart_beat.to_post_body())
+                        pass
+                    except:
+                        pass
