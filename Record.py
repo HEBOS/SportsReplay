@@ -67,6 +67,13 @@ class Record(object):
                                  detection_connection, polygons, width, height, fps, screen_connection, debugging)
         video_maker.start()
 
+    def create_match(self):
+        try:
+            requests.post(url=self.heart_beat_post_url, information=self.heart_beat.to_post_body())
+            pass
+        except:
+            pass
+
     def start(self, debugging: bool):
         # Schedule the start and end of capture 3 seconds ahead, so that all camera start at the same time
         playtime = int(self.config.common["playtime"])
@@ -112,9 +119,9 @@ class Record(object):
         class_id = SharedFunctions.get_class_id(coco_labels, self.config.activity_detector["sports-ball"])
         polygons_path = os.path.normpath(r"{}".format(self.config.activity_detector["polygons"]))
         polygons_json = SharedFunctions.read_text_file(polygons_path)
-        pi_host = self.config.pi_computer["host"]
-        pi_ftp_username = self.config.pi_computer["user"]
-        pi_ftp_password = self.config.pi_computer["password"]
+        pi_host = self.config.tv_box["host"]
+        pi_ftp_username = self.config.tv_box["user"]
+        pi_ftp_password = self.config.tv_box["password"]
 
         # Initialise the polygons (for covered, and restricted areas).
         polygons: List[DefinedPolygon] = DefinedPolygon.get_polygons(polygons_json)

@@ -1,26 +1,38 @@
 # SportsReplay
 
-To be able to use fake video streams to do the testing, we need to use v4l2loopback utility.
+##Cloning this repository
+mkdir $HOME/GitHub
 
-Installing support for streaming mp4 file to dev/videoX:
+cd $HOME/GitHub
 
-sudo apt install v4l2loopback-dkms
+git clone https://github.com/HEBOS/SportsReplay.git sports-replay
 
-sudo modprobe v4l2loopback devices=2
+##Setting up Jetson Nano
 
+###Creating a swap file
+sudo bash $HOME/GitHub/sports-replay/Bash-Scripts/create_swap_file.sh
 
-Removing v42loopback devices:
+###Preventing SSH timeout on Jetson
+sudo vi /etc/ssh/sshd_config
 
-sudo modprobe -r v4l2loopback
+#####Change the following values:
+- ClientAliveInterval 120
+- ClientAliveCountMax 720
 
+###Disabling Jetson Nano GUI mode
+sudo systemctl set-default multi-user.target
 
-Installing ffmpeg:
+###Enabling Jetson Nano GUI mode
+sudo systemctl set-default graphical.target
 
-sudo apt install ffmpeg
+###Starting GUI from CLI mode
+sudo systemctl start gdm3.service
 
+###Putting Jetson in 10w mode
+sudo bash $HOME/GitHub/sports-replay/Bash-Scripts/turn-10w-jetson-on.sh
 
-Streaming mp4 as video file:
+###Installing OpenCV 3.0 (the prerequisite)
+sudo apt-get install python3-opencv
 
-ffmpeg -r 25 -re -i 1.mp4 -map 0:v -input_format mjpeg -pix_fmt yuyv422 -f v4l2 /dev/video0
-
-ffmpeg -r 25 -re -i 2.mp4 -map 0:v -input_format mjpeg -pix_fmt yuyv422 -f v4l2 /dev/video1
+###Installing OpenCV 4.0
+sudo bash $HOME/GitHub/sports-replay/Bash-Scripts/install_opencv4.sh

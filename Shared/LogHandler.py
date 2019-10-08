@@ -15,7 +15,7 @@ from Shared.RecordHeartBeat import RecordHeartBeat
 class LogHandler(object):
     def __init__(self, application: str, planned_start_time: time):
         config = Configuration()
-        self.heart_beat_post_url = config.api["base-url"] + config.api["heartbeat"]
+        self.heart_beat_post_url = config.api["base-url"] + config.api["record-heartbeat"]
         self.log_post_url = config.api["base-url"] + config.api["log"]
         self.playground = config.common["playground"]
         self.planned_start_time = planned_start_time
