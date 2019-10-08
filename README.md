@@ -44,7 +44,7 @@ _If you want to start gui, while it is currently disabled, run:_
 ### Setting up the Tunneling
 
 #### Copying the Public Key
-`ssh-copy-id -i .ssh/id_rsa.pub root@78.46.214.162`
+`ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
 
 _If there is no key, run the following command, and after that repeat the previous step_
 
