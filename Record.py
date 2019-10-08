@@ -34,7 +34,10 @@ class Record(object):
         self.terminal = EasyTerminal()
         self.screen_info = RecordScreenInfo(self.terminal)
         self.planned_start_time = SharedFunctions.planned_start_time(hour, minute)
-        self.logger = LogHandler("recorder", self.planned_start_time)
+        self.logger = LogHandler("recorder",
+                                 self.planned_start_time,
+                                 self.planned_start_time + int(self.config.common["playtime"]))
+
 
     @staticmethod
     def start_single_camera(camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
@@ -66,13 +69,6 @@ class Record(object):
         video_maker = VideoMaker(playground, video_queue, output_video, latency,
                                  detection_connection, polygons, width, height, fps, screen_connection, debugging)
         video_maker.start()
-
-    def create_match(self):
-        try:
-            requests.post(url=self.heart_beat_post_url, information=self.heart_beat.to_post_body())
-            pass
-        except:
-            pass
 
     def start(self, debugging: bool):
         # Schedule the start and end of capture 3 seconds ahead, so that all camera start at the same time
@@ -269,6 +265,9 @@ class Record(object):
                                                        "Recording session finished after {} seconds.".
                                                        format(time.time() - started_at)))
 
+            self.logger.info(RecordScreenInfoEventItem(RecordScreenInfo.COMPLETED,
+                                                       RecordScreenInfoOperation.SET,
+                                                       ""))
             # Stop pipe connection functions
             with self.dispatching_lock:
                 self.dispatching = False

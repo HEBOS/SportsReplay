@@ -4,10 +4,11 @@ import argparse
 import keyboard
 import time
 import requests
+import json
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
 from Shared.RecordHeartBeat import RecordHeartBeat
-
+from Shared.HttpService import HttpService
 
 class TvBox(object):
     def __init__(self):
@@ -43,8 +44,9 @@ class TvBox(object):
 
     def send_heart_beat(self):
         try:
-            requests.post(url=self.heart_beat_post_url,
-                          information={'last_activity': SharedFunctions.to_post_time(time.time())})
+            data = json.dumps({'last_activity': SharedFunctions.to_post_time(time.time())})
+            HttpService.post(url=self.heart_beat_post_url,
+                             data=data)
         except:
             pass
 

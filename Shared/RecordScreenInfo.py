@@ -22,6 +22,7 @@ class RecordScreenInfo(object):
     ERROR_LOG: int = 17
     CURRENT_TASK: int = 18
     VM_IS_LIVE: int = 19
+    COMPLETED: int = 21
 
     def __init__(self, terminal: EasyTerminal):
         self.terminal = terminal
@@ -48,7 +49,8 @@ class RecordScreenInfo(object):
             TerminalItem(terminal, self.VM_WRITTEN_FRAMES, "VM - Written Frames: ", 5),
             TerminalItem(terminal, self.VM_QUEUE_COUNT, "VM - Queue: ", 5),
             TerminalItem(terminal, self.VM_IS_LIVE, "VM - Live: ", 5),
-            TerminalItem(terminal, self.CURRENT_TASK, "Current Task: ", 80)
+            TerminalItem(terminal, self.CURRENT_TASK, "Current Task: ", 80),
+            TerminalItem(terminal, self.COMPLETED, "Completed: ", 80)
         ]
 
     def set_item_value(self, label_type: int, value):
@@ -103,4 +105,6 @@ class RecordScreenInfo(object):
             return "CURRENT_TASK"
         if enum_value == 19:
             return "VM_IS_LIVE"
+        if enum_value == 21:
+            return "COMPLETED"
         return ""
