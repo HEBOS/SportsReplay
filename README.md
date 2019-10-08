@@ -65,4 +65,4 @@ _Paste the above command for creating a tunnel into the script._
 #### Connecting to Jetson or Raspberry from the Remote Computer
 `ssh sportsreplay@78.46.214.162 -p XXXX`
 
-_Replace XXXX with previously assigned available VPS port._
+_Replace XXXX with previously assigned VPS port._
