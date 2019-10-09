@@ -49,39 +49,39 @@ _If you want to start gui, while it is currently disabled, run:_
 
 ### Setting up the Tunneling
 
-#### Setup the Prerequisites on VPS (Already Done)
+#### Server - Setup the Prerequisites on VPS (Already Done)
 `vi /etc/ssh/sshd_config`
 
 _Change the following setting:_
 
 `PermitRootLogin without-password`
 
-#### Copying the Public Key
+#### Remote Computer - Copying the Public Key
 `ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
 
 _If there is no key, run the following command, and after that repeat the previous step_
 
 `ssh-keygen -o`
 
-#### Adding Your Key to Hetzer Console
+#### Hetzer Console - Adding Your Key
 Get your SSH key using `vi ~/.ssh/id_rsa.pub` and copy/paste the code as a new SSH key in Hetzer console `https://console.hetzner.cloud/projects/297870/access/sshkeys`
 
-#### Install tmux
+#### Remote Computer - Install tmux
 apt install tmux
 
-#### Creating a Tunnel
+#### Remote Computer - Creating a Tunnel
 `/usr/bin/tmux new-session -s tunneling -d  ssh -nN -R XXXX:localhost:22 root@78.46.214.162`
 
 _Replace XXXX with the next available VPS port dedicated to tunelling. Also make sure to update the devices documentation with the port assigned._ 
 
-#### Create the Startup Script
+#### Remote Computer - Create the Startup Script
 `sudo vi /etc/init.d/create_tunnel.sh`
 
 _Paste the above command for creating a tunnel into the script._
 
 `chmod +x /etc/init.d/create_tunnel.sh`
 
-#### Connecting to Jetson or Raspberry from the Remote Computer
+#### Connecting to Remote Computer from Any Computer
 `ssh sportsreplay@78.46.214.162 -p XXXX`
 
 _Replace XXXX with previously assigned VPS port._
