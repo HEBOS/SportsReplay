@@ -38,7 +38,6 @@ class Record(object):
                                  self.planned_start_time,
                                  self.planned_start_time + int(self.config.common["playtime"]))
 
-
     @staticmethod
     def start_single_camera(camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
                             screen_connection: mp.connection.Connection, debugging: bool):
