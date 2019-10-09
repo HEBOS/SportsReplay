@@ -13,7 +13,8 @@ class Configuration(object):
         self.logger = {}
         self.video_maker = {}
         self.common = {}
-        self.pi_computer = {}
+        self.tv_box = {}
+        self.api = {}
 
         # for debugging purposes only
         if platform.system() == "Windows":
@@ -35,7 +36,9 @@ class Configuration(object):
                     self.video_maker[option] = config.get(section, option)
                 if section == "logger":
                     self.logger[option] = config.get(section, option)
-                if section == "pi-computer":
-                    self.pi_computer[option] = config.get(section, option)
+                if section == "tv-box":
+                    self.tv_box[option] = config.get(section, option)
                 if section == "common":
                     self.common[option] = config.get(section, option)
+                if section == "api":
+                    self.api[option] = config.get(section, option)

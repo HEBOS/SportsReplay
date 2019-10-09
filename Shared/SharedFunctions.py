@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 import os
 import time
+import datetime
 import ntpath
 import cv2
+import sys
 from Shared.Point import Point
 from typing import List
 
 
 class SharedFunctions(object):
     @staticmethod
-    def get_recording_path(root_path: str, building: int, playground: int, current_time: float):
+    def get_recording_path(root_path: str, playground: int, planned_start_time: float):
         return os.path\
-            .normpath(r"{path}/{building}-{playground}-{timestamp}"
+            .normpath(r"{path}/{playground}-{timestamp}"
                       .format(path=root_path,
-                              building=str(building).zfill(5),
-                              playground=str(playground).zfill(3),
-                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
+                              playground=str(playground),
+                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(planned_start_time))))
 
     @staticmethod
-    def get_output_video(root_path: str, building: int, playground: int, current_time: float):
+    def get_output_video(root_path: str, playground: int, planned_start_time: float):
         return os.path\
-            .normpath(r"{path}/{building}-{playground}-{timestamp}.mp4v"
+            .normpath(r"{path}/{playground}-{timestamp}.mp4v"
                       .format(path=root_path,
-                              building=str(building).zfill(5),
-                              playground=str(playground).zfill(3),
-                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(current_time))))
+                              playground=str(playground),
+                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(planned_start_time))))
 
     @staticmethod
     def get_json_file_path(file_path: str):
@@ -99,4 +99,28 @@ class SharedFunctions(object):
         for i in range(1, 5):
             cv2.waitKey(1)
 
+    @staticmethod
+    def planned_start_time(hour: int, minute: int):
+        today = datetime.datetime.now()
+        planned_start_time = datetime.datetime(today.year, today.month, today.day, hour, minute, 0, 0)
+        return time.mktime(planned_start_time.timetuple()) + planned_start_time.microsecond / 1E6
 
+    @staticmethod
+    def is_number(s) -> bool:
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
+
+    @staticmethod
+    def get_exception_info(ex: Exception) -> str:
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        file_name = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+        return "{}, line {}\n{}".format(file_name, exc_tb.tb_lineno, ex)
+
+    @staticmethod
+    def to_post_time(value: time):
+        if value is None:
+            return None
+        return int(round(value * 1000))

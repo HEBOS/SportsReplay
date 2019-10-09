@@ -5,9 +5,11 @@ import time
 import jsonpickle
 import numpy as np
 import threading
+import sys
 import os
+import socket
+import errno
 from typing import List
-from Shared.LogHandler import LogHandler
 from Shared.CapturedFrame import CapturedFrame
 from Shared.Camera import Camera
 from Shared.Detection import Detection
@@ -16,6 +18,9 @@ from Shared.Linq import Linq
 from Shared.SharedFunctions import SharedFunctions
 from Shared.DefinedPolygon import DefinedPolygon
 from Darknet.DarknetDetector import DarknetDetector
+from Shared.RecordScreenInfo import RecordScreenInfo
+from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
+from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 
 
 class Detector(object):
@@ -23,7 +28,7 @@ class Detector(object):
                  class_id: int, network_config_path: str, network_weights_path: str,
                  coco_config_path: str, width: int, height: int,
                  cameras: List[Camera], detection_connection: mp.connection.Connection,
-                 polygons: List[DefinedPolygon], debugging: bool):
+                 polygons: List[DefinedPolygon], screen_connection: mp.connection.Connection, debugging: bool):
         self.playground = playground
         self.ai_queue = ai_queue
         self.video_queue = video_queue
@@ -38,9 +43,11 @@ class Detector(object):
         self.polygons = polygons
         self.debugging = debugging
         self.active_camera = cameras[0]
+        self.screen_connection = screen_connection
 
         # Logger
-        self.logger = LogHandler("detector")
+        self.total_detections = 0
+        self.detection_started = time.time()
 
     def start(self):
         # load the object detection network
@@ -48,6 +55,9 @@ class Detector(object):
                                                self.network_weights_path,
                                                self.coco_config_path,
                                                (self.cameras[0].width, self.cameras[0].height))
+
+        self.detection_started = time.time()
+
         try:
             ball_sizes: List[Detection] = []
 
@@ -61,12 +71,13 @@ class Detector(object):
                     warmed_up = True
 
                     captured_frame: CapturedFrame = self.ai_queue.dequeue("Ai Queue {}".format(self.active_camera.id))
+                    self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.AI_QUEUE_COUNT,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           self.ai_queue.qsize())])
 
                     # We are stopping detection if we have reached the end of the queue
                     if captured_frame is None:
                         break
-
-                    start_time = time.time()
 
                     if captured_frame.camera.id != self.active_camera.id:
                         # Run the AI detection, based on class id
@@ -89,17 +100,20 @@ class Detector(object):
 
                         # Some logging for debug session
                         if self.debugging:
-                            print("Detection took = {}".format(time.time() - start_time))
-                            if len(balls) > 0:
-                                print("Detection details {}".format(jsonpickle.encode(balls)))
-                            self.logger.info("Time {}. Camera {}. Detection result - {} balls."
-                                             .format(captured_frame.timestamp,
-                                                     captured_frame.camera.id,
-                                                     len(balls)))
                             if len(balls) == 1 and self.debugging:
                                 ball_sizes.append(balls[0])
+                        else:
+                            if len(balls) > 0:
+                                self.total_detections += 1
 
                         if len(balls) > 0:
+                            self.total_detections += 1
+                            detections_per_second = (self.total_detections / (time.time() - self.detection_started))
+                            self.screen_connection.send(
+                                [RecordScreenInfoEventItem(RecordScreenInfo.AI_DETECTIONS_PER_SECOND,
+                                                           RecordScreenInfoOperation.SET,
+                                                           detections_per_second)])
+
                             # We declare the examining camera as an active one if there is a ball in the area it covers
                             # but the ball is not in protected area
                             for ball in balls:
@@ -118,7 +132,17 @@ class Detector(object):
 
                                             # Send message to VideoMaker process
                                             self.detection_connection.send(ball)
-                                            self.logger.info("Camera {} became active.".format(self.active_camera.id))
+                                            self.screen_connection.send(
+                                                [RecordScreenInfoEventItem(RecordScreenInfo.VR_ACTIVE_CAMERA,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           ball.camera_id),
+                                                 RecordScreenInfoEventItem(RecordScreenInfo.AI_IS_LIVE,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           "yes"),
+                                                 RecordScreenInfoEventItem(RecordScreenInfo.AI_QUEUE_COUNT,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           self.ai_queue.qsize())]
+                                            )
                                             if self.debugging:
                                                 debug_thread = threading.Thread(target=self.draw_debug_info,
                                                                                 args=(captured_frame.clone(), ball))
@@ -138,19 +162,45 @@ class Detector(object):
 
             if self.debugging:
                 Detector.log_balls(ball_sizes)
-            print("Detector - normal exit.")
+
+            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   "Detector finished working.")])
+        except EOFError:
+            pass
+        except socket.error as e:
+            if e.errno != errno.EPIPE:
+                # Not a broken pipe
+                raise
         except Exception as ex:
-            print("ERROR: {}".format(ex))
+            self.screen_connection.send(
+                [RecordScreenInfoEventItem(RecordScreenInfo.AI_EXCEPTIONS,
+                                           RecordScreenInfoOperation.ADD,
+                                           1),
+                 RecordScreenInfoEventItem(RecordScreenInfo.AI_IS_LIVE,
+                                           RecordScreenInfoOperation.SET,
+                                           "no"),
+                 RecordScreenInfoEventItem(RecordScreenInfo.ERROR_LOG,
+                                           RecordScreenInfoOperation.SET,
+                                           SharedFunctions.get_exception_info(ex))]
+            )
         finally:
-            self.detection_connection.close()
-            self.detection_connection = None
-            self.video_queue.mark_as_done()
-            print("Detector finished working.")
+            try:
+                self.detection_connection.close()
+                self.detection_connection = None
+                self.screen_connection.close()
+                self.screen_connection = None
+                self.video_queue.mark_as_done()
+            except EOFError:
+                pass
+            except socket.error as e:
+                pass
+            except Exception as ex:
+                print(ex)
 
     @staticmethod
     def log_balls(ball_sizes: List[Detection]):
-        ball_sizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tconfidence"
-                                      "\tcamera\tframe_number\r\n"]
+        ball_sizes_lines: List[str] = ["height\twidth\tleft\tright\ttop\tbottom\tconfidence\tcamera\tframe_number\r\n"]
         for bs in ball_sizes:
             ball_sizes_lines.append(
                 "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\r\n".format(bs.height,
