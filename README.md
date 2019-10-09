@@ -15,6 +15,8 @@
 ### Preventing SSH timeout on Jetson
 `sudo vi /etc/ssh/sshd_config`
 
+_Make sure you reboot Jetson now. Otherwise it will still use the same setting._
+
 ##### Change the following values:
 - ClientAliveInterval 120
 - ClientAliveCountMax 720
