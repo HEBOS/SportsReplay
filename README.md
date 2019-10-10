@@ -123,13 +123,27 @@ _Replace XXXX with previously assigned VPS port._
     2. Burn SD card using downloaded image above using Balena Etcher which can be downloaded from https://www.balena.io/etcher
     3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined above.
 
+### Changing Host Name in Linux
+Give the name according to the naming convention defined above, and make sure you log it to Devices spreadsheet.
+
+`sudo nano /etc/hostname`
+
+`sudo reboot`
+
+
 ### Enabling SSH service
 
-    1. Launch Raspberry Pi Configuration from the Preferences menu
-    2. Navigate to the Interfaces tab
-    3. Select Enabled next to SSH
-    4. Click OK
-    5. Now you can disconnect the monitor, and access your device using SSH
+ `sudo raspi-config` 
+
+    1. Select Interfacing Options
+    2. Navigate to and select SSH
+    3. Choose Yes
+    4. Select Ok
+    5. Choose Finish
+
+### Preventing SSH timeout on Raspberry
+
+See the steps defined for the Jetson Nano defined above.
 
 ### Performing OS upgrade
 
@@ -138,6 +152,7 @@ _Replace XXXX with previously assigned VPS port._
 `sudo apt update`
 
 `sudo apt-get upgrade`
+
 
 ### Adding AI device address to Raspberry hosts file
 `sudo nano /etc/hosts`
@@ -154,13 +169,18 @@ _Replace XXXX with previously assigned VPS port._
 
 `sudo nano /etc/vsftpd.conf`
 
-    Add/uncomment lines in config file:
+    Add, uncomment, or amend lines in the config file:
+
+Amend
 
     anonymous_enable=NO
     local_enable=YES
     write_enable=YES
     local_umask=022
     chroot_local_user=YES
+
+Add
+
     user_sub_token=$USER
     local_root=/home/$USER/FTP
 
@@ -169,3 +189,9 @@ _Replace XXXX with previously assigned VPS port._
 `mkdir /home/pi/FTP`
 
 `sudo service vsftpd restart`
+
+### Disabling Rasperry GUI mode
+See the steps defined for the Jetson Nano defined above.
+
+### Setting up the Tunneling
+See the steps defined for the Jetson Nano defined above.
