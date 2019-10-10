@@ -1,9 +1,9 @@
 # Sports Replay - Configuring Raspberry Pi
 
 ### OS Installation
-    1. Download Raspbian OS from here https://www.raspberrypi.org/downloads/raspbian/
-    2. Burn SD card using downloaded image above using Balena Etcher which can be downloaded from https://www.balena.io/etcher
-    3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined above.
+1. Download Raspbian OS from here https://www.raspberrypi.org/downloads/raspbian/
+2. Burn SD card using downloaded image above using Balena Etcher which can be downloaded from https://www.balena.io/etcher
+3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined above.
 
 ### Changing the Host Name
 Give the name according to the [Naming Convention](../README.md).

@@ -15,12 +15,16 @@ All device attributes should be saved to the [Devices Google sheet](https://docs
 #### Remote Computer - Copying the Public Key
 `ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
 
-    If there is no key, run the following command, and after that repeat the previous step
+If there is no key, run the following command, and after that repeat the previous step
 
 `ssh-keygen -o`
 
 #### Hetzer Console - Adding Your Key
-    Get your SSH key using `vi ~/.ssh/id_rsa.pub` and copy/paste the code as a new SSH key in Hetzer console `https://console.hetzner.cloud/projects/297870/access/sshkeys`
+Get your SSH key using 
+
+`vi ~/.ssh/id_rsa.pub` 
+
+and copy/paste the code as a new SSH key in [Hetzer console](https://console.hetzner.cloud/projects/297870/access/sshkeys).
 
 #### Remote Computer - Install tmux
 `apt install tmux`
@@ -28,19 +32,21 @@ All device attributes should be saved to the [Devices Google sheet](https://docs
 #### Remote Computer - Creating a Tunnel
 `/usr/bin/tmux new-session -s tunneling -d  ssh -nN -R XXXX:localhost:22 root@78.46.214.162`
 
-    Replace XXXX with the next available VPS port dedicated to tunelling. Also make sure to update the devices documentation with the port assigned. 
+Replace __XXXX__ with the next available VPS port dedicated to tunneling.
+Also make sure to update the [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0) with the port assigned. 
+
 
 #### Remote Computer - Create the Startup Script
 `sudo vi /etc/init.d/create_tunnel.sh`
 
-    Paste the above command for creating a tunnel into the script.
+Paste the above command for creating a tunnel into the script.
 
 `chmod +x /etc/init.d/create_tunnel.sh`
 
 #### Connecting to Remote Computer from Any Computer
 `ssh sportsreplay@78.46.214.162 -p XXXX`
 
-    Replace XXXX with previously assigned VPS port.
+Replace __XXXX with__ previously assigned VPS port.
 
 ### Preventing SSH timeout
 `sudo vi /etc/ssh/sshd_config`
@@ -49,12 +55,12 @@ All device attributes should be saved to the [Devices Google sheet](https://docs
     - ClientAliveInterval 120
     - ClientAliveCountMax 720
 
-    Make sure you reboot the device now. Otherwise it will still use the same setting.
+Make sure you reboot the device now. Otherwise it will still use the same setting.
 
 ### Disabling Linux GUI mode
 `sudo systemctl set-default multi-user.target`
 
-    Make sure you reboot the device now. Otherwise GUI will still be on.
+Make sure you reboot the device now. Otherwise GUI will still be on.
 
 If you need to enable it again, run:
 
