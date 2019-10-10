@@ -42,19 +42,8 @@ Where:
 
 At this point, we need to run `sudo reboot` to apply the host name changes.
 
-
-### Enabling SSH service
-
- `sudo raspi-config` 
-
-    1. Select Interfacing Options
-    2. Navigate to and select SSH
-    3. Choose Yes
-    4. Select Ok
-    5. Choose Finish
-
 ### Preventing SSH timeout on Raspberry
-Read instructions [here](../README.md).
+Read instructions [here](COMMON.md).
 
 ### Performing OS upgrade
 
@@ -92,9 +81,6 @@ Add
 `mkdir /home/pi/FTP`
 
 `sudo service vsftpd restart`
-
-### Disabling Raspberry GUI mode
-Full instructions can be found in [Disabling Linux GUI mode](../README.md) section.
 
 ### Setting up the Tunneling
 Full instructions can be found in [Setting up the Tunneling](../README.md) section.
