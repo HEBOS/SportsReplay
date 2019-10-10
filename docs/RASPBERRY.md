@@ -4,13 +4,43 @@
 1. Download Raspbian OS from here https://www.raspberrypi.org/downloads/raspbian/
 2. Burn SD card using downloaded image above using Balena Etcher which can be downloaded from https://www.balena.io/etcher
 3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined above.
+4. Make sure you select 5G WiFi during the OS installation
 
-### Changing the Host Name
-Give the name according to the [Naming Convention](../README.md).
+### After OS Installation
+Open "Rasberry PI Configuration" screen
 
-`sudo nano /etc/hostname`
+System tab:
+	
+- Hostname - Enter a new name according to Naming Conventions
 
-`sudo reboot`
+- Boot - To CLI.
+
+- Network at Boot - Wait for network
+
+Interfaces tab:
+	
+- Set SSH to enabled
+
+### Disabling Automatic Login in CLI
+
+`sudo nano /etc/lightdm/lightdm.conf`
+
+Comment the following option:
+
+    #autologin-user=pi
+
+### Modifying the hosts file
+`sudo nano /etc/hosts`
+    
+Add the following entry:
+
+    192.168.0.xxx	sports-replay-ai-Y 
+     
+Where:
+ - xxx us defined in router setup explained below
+ - Y is the ID defined during [Jetson Nano](JETSON.md) device setup.
+
+At this point, we need to run `sudo reboot` to apply the host name changes.
 
 
 ### Enabling SSH service
@@ -33,16 +63,6 @@ Read instructions [here](../README.md).
 `sudo apt update`
 
 `sudo apt-get upgrade`
-
-
-### Adding Respective Jetson Nano Device Address to Raspberry Hosts File
-`sudo nano /etc/hosts`
-    
-Add the following entry:
-
-    192.168.0.xxx	sports-replay-ai-Y 
-    
-Where xxx is, as defined in router setup explained below, and Y is, as defined during [Jetson Nano](JETSON.md) device setup.
     
 ### Installing the FTP server on Raspberry PI
 
