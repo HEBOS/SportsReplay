@@ -1,4 +1,4 @@
-# Sports Replay - Configuring Jetson Nano
+# Configuring Jetson Nano
 
 ### OS Installation
 Download JetPack from [here](https://developer.nvidia.com/embedded/jetpack).

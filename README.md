@@ -1,5 +1,3 @@
-# Sports Replay
-
 ## Cloning this repository
 `mkdir $HOME/GitHub`
 

@@ -1,4 +1,4 @@
-# Sports Replay - Common Instructions
+# Common Instructions
 
 ## Naming Convention
 

@@ -1,4 +1,4 @@
-# Sports Replay - Configuring the Router
+# Configuring the Router
 
 1. Set up the router, assigning SSID, according to [Naming Convention](../README.md).   
 2. Enable only network 2G, or 5G, whichever is supported by installed cameras.

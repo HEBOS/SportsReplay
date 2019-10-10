@@ -1,4 +1,4 @@
-# Sports Replay - Configuring Raspberry Pi
+# Configuring Raspberry Pi
 
 ### OS Installation
 1. Download Raspbian OS from here https://www.raspberrypi.org/downloads/raspbian/
@@ -38,6 +38,8 @@ Read instructions [here](../README.md).
 ### Adding Respective Jetson Nano Device Address to Raspberry Hosts File
 `sudo nano /etc/hosts`
     
+Add the following entry:
+
     192.168.0.xxx	sports-replay-ai-Y 
     
 Where xxx is, as defined in router setup explained below, and Y is, as defined during [Jetson Nano](JETSON.md) device setup.

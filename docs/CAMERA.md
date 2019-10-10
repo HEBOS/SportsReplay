@@ -1,4 +1,4 @@
-# Sports Replay - Configuring the Camera
+# Configuring the Camera
 
 1. Connect the camera with ethernet cable.
 
