@@ -3,7 +3,7 @@
 ### OS Installation
 1. Download Raspbian OS from here https://www.raspberrypi.org/downloads/raspbian/
 2. Burn SD card using downloaded image above using Balena Etcher which can be downloaded from https://www.balena.io/etcher
-3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined above.
+3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined [here](COMMON.md).
 4. Make sure you select 5G WiFi during the OS installation
 
 ### After OS Installation
@@ -13,21 +13,15 @@ System tab:
 	
 - Hostname - Enter a new name according to Naming Conventions
 
-- Boot - To CLI.
+- Auto-Login - Disable option
+
+- Boot - To CLI
 
 - Network at Boot - Wait for network
 
 Interfaces tab:
 	
 - Set SSH to enabled
-
-### Disabling Automatic Login in CLI
-
-`sudo nano /etc/lightdm/lightdm.conf`
-
-Comment the following option:
-
-    #autologin-user=pi
 
 ### Modifying the hosts file
 `sudo nano /etc/hosts`
