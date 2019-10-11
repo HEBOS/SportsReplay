@@ -16,16 +16,17 @@ All device attributes should be saved to the [Devices Google sheet](https://docs
 
 `sudo su`
 
-#### Remote Computer - Copying the Public Key
-`ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
-
-    You will need to provide root password for VPS.
-
-If there is no key, run the following command, and after that repeat the previous step
+Create The Public Key
 
 `ssh-keygen -o`
 
-    Make sure not to provide any passphrase, otherwise you won't be getting passwordless login.
+    Make sure to press ENTER 3 times.
+    Do not provide any passphrase, otherwise you won't be getting passwordless login.
+
+#### Remote Computer - Copying The Public Key
+`ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
+
+    You will need to provide root password for VPS.
 
 #### Install autossh 
 `sudo apt install autossh`
