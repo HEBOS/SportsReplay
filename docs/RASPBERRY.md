@@ -1,12 +1,12 @@
 # Configuring Raspberry Pi
 
-### OS Installation
+## OS Installation
 1. Download Raspbian OS from here https://www.raspberrypi.org/downloads/raspbian/
 2. Burn SD card using downloaded image above using Balena Etcher which can be downloaded from https://www.balena.io/etcher
 3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined [here](COMMON.md).
 4. Make sure you select 5G WiFi during the OS installation
 
-### After OS Installation
+## Post OS Installation Steps
 Open "Rasberry PI Configuration" screen
 
 System tab:
@@ -23,7 +23,7 @@ Interfaces tab:
 	
 - Set SSH to enabled
 
-### Modifying the hosts file
+## Modifying The Hosts File
 `sudo nano /etc/hosts`
     
 Add the following entry:
@@ -36,10 +36,10 @@ Where:
 
 At this point, we need to run `sudo reboot` to apply the host name changes.
 
-### Preventing SSH timeout on Raspberry
+## Preventing SSH timeout on Raspberry
 Read instructions [here](COMMON.md).
 
-### Performing OS upgrade
+## Performing OS Upgrade
 
 `sudo apt-get update`
 
@@ -47,7 +47,7 @@ Read instructions [here](COMMON.md).
 
 `sudo apt-get upgrade`
     
-### Installing the FTP server on Raspberry PI
+## Installing The FTP Server on Raspberry PI
 
 `sudo apt-get update`
 
@@ -57,7 +57,7 @@ Read instructions [here](COMMON.md).
 
 Add, uncomment, or amend lines in the config file:
 
-Amend
+__Amend__
 
     anonymous_enable=NO
     local_enable=YES
@@ -65,16 +65,16 @@ Amend
     local_umask=022
     chroot_local_user=YES
 
-Add
+__Add__
 
     user_sub_token=$USER
     local_root=/home/$USER/FTP
 
-#### Create FTP directory, and restart FTP service
+### Creating FTP directory, and Restarting FTP service
 
 `mkdir /home/pi/FTP`
 
 `sudo service vsftpd restart`
 
-### Setting up the Tunneling
+## Setting up The Tunneling
 Full instructions can be found in [Setting up the Tunneling](../README.md) section.
