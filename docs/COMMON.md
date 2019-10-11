@@ -12,41 +12,79 @@ All device attributes should be saved to the [Devices Google sheet](https://docs
 
 ### Setting up the Tunneling
 
+#### Login as root user
+
+`sudo su`
+
 #### Remote Computer - Copying the Public Key
 `ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
+
+    You will need to provide root password for VPS.
 
 If there is no key, run the following command, and after that repeat the previous step
 
 `ssh-keygen -o`
 
-#### Hetzer Console - Adding Your Key
-Get your SSH key using 
+    Make sure not to provide any passphrase, otherwise you won't be getting passwordless login.
 
-`vi ~/.ssh/id_rsa.pub` 
+#### Install autossh 
+`sudo apt install autossh`
 
-and copy/paste the code as a new SSH key in [Hetzer console](https://console.hetzner.cloud/projects/297870/access/sshkeys).
+#### Create tunneling service
 
-#### Remote Computer - Install tmux
-`apt install tmux`
+Raspberry Pi
 
-#### Remote Computer - Creating a Tunnel
-`/usr/bin/tmux new-session -s tunneling -d  ssh -nN -R XXXX:localhost:22 root@78.46.214.162`
+`sudo nano /etc/systemd/system/autossh-tunnel.service `
 
-Replace __XXXX__ with the next available VPS port dedicated to tunneling.
-Also make sure to update the [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0) with the port assigned. 
+Jetson
+
+`sudo vi /etc/systemd/system/autossh-tunnel.service `
+
+Paste the following content in it (replace __XXXX__ with the next available VPS port dedicated to tunneling).
+
+    [Unit]
+    Description=AutoSSH tunnel service on port 22
+    After=network.target
+    
+    [Service]
+    Environment="AUTOSSH_GATETIME=0"
+    ExecStart=/usr/bin/autossh -M 0 -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -nN -R XXXX:localhost:22 root@78.46.214.162
+    
+    [Install]
+    WantedBy=multi-user.target
+
+#### Start the service
+
+`sudo systemctl start autossh-tunnel.service`
 
 
-#### Remote Computer - Create the Startup Script
-`sudo vi /etc/init.d/create_tunnel.sh`
+#### Enable Service at Startup
 
-Paste the above command for creating a tunnel into the script.
+`sudo systemctl enable autossh-tunnel.service`
 
-`chmod +x /etc/init.d/create_tunnel.sh`
+Reboot
+
+`sudo reboot`
+
+
+#### Testing on VPS If The Port Is Opened 
+
+Open a separate terminal and use the following commands.
+
+`ssh root@78.46.214.162`
+
+`netstat -tulpn | grep LISTEN`
 
 #### Connecting to Remote Computer from Any Computer
+
+For Jetson (replace __XXXX with__ previously assigned VPS port.)
+
 `ssh sportsreplay@78.46.214.162 -p XXXX`
 
-Replace __XXXX with__ previously assigned VPS port.
+For Raspberry Pi (replace __XXXX with__ previously assigned VPS port.)
+
+`ssh pi@78.46.214.162 -p XXXX`
+
 
 ### Preventing SSH timeout
 `sudo vi /etc/ssh/sshd_config`
