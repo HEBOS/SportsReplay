@@ -7,21 +7,21 @@ Burn SD card using downloaded image above using Balena Etcher which can be downl
 
 Follow the instructions defined in the [following article](https://developer.nvidia.com/embedded/learn/get-started-jetson-nano-devkit#write).
 
-## Cloning this repository
+## Cloning This Repository
 The cloning of this repository needs to be done into $HOME/GitHub/sports-replay folder, as described [here](../README.md).
  
-## Creating a swap file
+## Creating a Swap File
 `sudo bash $HOME/GitHub/sports-replay/Bash-Scripts/create_swap_file.sh`
 
     Note that Jetson will be automatically rebooted.
 
-## Preventing SSH timeout on Jetson
+## Preventing SSH Timeout on Jetson
 Read instructions [here](../README.md).
 
 ## Disabling Jetson Nano GUI mode
 Read instructions [here](../README.md).
 
-## Putting Jetson in 10w mode
+## Putting Jetson in 10w Mode
 `sudo bash $HOME/GitHub/sports-replay/Bash-Scripts/turn-10w-jetson-on.sh`
 
 ## Installing OpenCV 3.0 (the prerequisite)
@@ -34,6 +34,6 @@ Read instructions [here](../README.md).
 
     From this point, you can disconnect the monitor, and access your device using SSH.
 
-## Setting up the Tunneling
+## Setting up The Tunneling
 Read instructions [here](../README.md).
 
