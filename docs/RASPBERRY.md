@@ -6,7 +6,7 @@
 3. Put the card into Raspbery device, and turn it on. Follow the instructions, and respect naming convention defined [here](COMMON.md).
 4. Make sure you select 5G WiFi during the OS installation
 
-## After OS Installation
+## Post OS Installation Steps
 Open "Rasberry PI Configuration" screen
 
 System tab:
@@ -57,7 +57,7 @@ Read instructions [here](COMMON.md).
 
 Add, uncomment, or amend lines in the config file:
 
-Amend
+__Amend__
 
     anonymous_enable=NO
     local_enable=YES
@@ -65,7 +65,7 @@ Amend
     local_umask=022
     chroot_local_user=YES
 
-Add
+__Add__
 
     user_sub_token=$USER
     local_root=/home/$USER/FTP
