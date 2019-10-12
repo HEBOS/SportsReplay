@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
     Usage: python3 DetermineIgnoredZone.py --image PNG_IMAGE_FULL_PATH  --camera CAMERA_ID --detect TRUE_FALSE
 

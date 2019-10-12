@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy
 from Darknet.DarknetBindings import *
 from Shared.YoloDetection import YoloDetection

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from ftplib import FTP
 import os
 import time

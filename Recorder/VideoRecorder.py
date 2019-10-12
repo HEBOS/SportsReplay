@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import threading
 import time
 import math
@@ -9,6 +10,7 @@ import errno
 import os
 import sys
 from Shared.SharedFunctions import SharedFunctions
+from Shared.CvFunctions import CvFunctions
 from Shared.Camera import Camera
 from Shared.CapturedFrame import CapturedFrame
 from Shared.MultiProcessingQueue import MultiProcessingQueue
@@ -146,7 +148,7 @@ class VideoRecorder(object):
                 self.screen_connection = None
                 if capture is not None:
                     capture.release()
-                SharedFunctions.release_open_cv()
+                CvFunctions.release_open_cv()
                 self.ai_queue.mark_as_done()
                 self.video_queue.mark_as_done()
                 self.ai_queue = None

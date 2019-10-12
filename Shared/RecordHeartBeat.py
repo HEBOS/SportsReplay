@@ -1,5 +1,5 @@
+#!/usr/bin/env python3
 import time
-import json
 from Shared.SharedFunctions import SharedFunctions
 
 
@@ -40,15 +40,13 @@ class RecordHeartBeat(object):
         self._completed = True
 
     def to_post_body(self):
-        data = {'playgroundId': self.playground,
-                'plannedStartTime': SharedFunctions.to_post_time(self.planned_start_time),
-                'plannedEndTime': SharedFunctions.to_post_time(self.planned_end_time),
-                'actualStartTime': SharedFunctions.to_post_time(self._actual_start_time),
-                'actualEndTime': SharedFunctions.to_post_time(self._actual_end_time),
-                'completed': self._completed,
-                'camera1Activity': SharedFunctions.to_post_time(self._video_recorder_1),
-                'camera2Activity': SharedFunctions.to_post_time(self._video_recorder_2),
-                'videoMakerActivity': SharedFunctions.to_post_time(self._video_maker),
-                'detectorActivity': SharedFunctions.to_post_time(self._detector),
-                }
-        return json.dumps(data)
+        return SharedFunctions.to_post_body({'playgroundId': self.playground,
+                                             'plannedStartTime': SharedFunctions.to_post_time(self.planned_start_time),
+                                             'plannedEndTime': SharedFunctions.to_post_time(self.planned_end_time),
+                                             'actualStartTime': SharedFunctions.to_post_time(self._actual_start_time),
+                                             'actualEndTime': SharedFunctions.to_post_time(self._actual_end_time),
+                                             'completed': self._completed,
+                                             'camera1Activity': SharedFunctions.to_post_time(self._video_recorder_1),
+                                             'camera2Activity': SharedFunctions.to_post_time(self._video_recorder_2),
+                                             'videoMakerActivity': SharedFunctions.to_post_time(self._video_maker),
+                                             'detectorActivity': SharedFunctions.to_post_time(self._detector)})

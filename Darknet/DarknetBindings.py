@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from ctypes import *
 import os
 import random

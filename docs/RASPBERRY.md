@@ -78,3 +78,9 @@ __Add__
 
 ## Setting up The Tunneling
 Full instructions can be found in [Setting up the Tunneling](../README.md) section.
+
+## The Prerequisites for The Player
+`sudo apt-get update && sudo apt-get install -y libdbus-1{,-dev}`
+
+`pip3 install omxplayer-wrapper`
+
