@@ -119,5 +119,11 @@ class SharedFunctions(object):
         return int(round(value * 1000))
 
     @staticmethod
+    def from_post_time(value: int) -> time:
+        if value is None:
+            return None
+        return value / 1000
+
+    @staticmethod
     def to_post_body(data) -> str:
         return json.dumps(data)
