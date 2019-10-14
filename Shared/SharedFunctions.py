@@ -4,9 +4,10 @@ import time
 import datetime
 import ntpath
 import sys
+from dateutil.parser import parse as dateParser
 from Shared.Point import Point
 from typing import List
-import json
+import jsonpickle
 
 
 class SharedFunctions(object):
@@ -119,11 +120,12 @@ class SharedFunctions(object):
         return int(round(value * 1000))
 
     @staticmethod
-    def from_post_time(value: int) -> time:
+    def from_post_time(value: str) -> time:
         if value is None:
             return None
-        return value / 1000
+        date = dateParser(value)
+        return time.mktime(date.timetuple()) + date.microsecond / 1E6
 
     @staticmethod
     def to_post_body(data) -> str:
-        return json.dumps(data)
+        return jsonpickle.encode(data)

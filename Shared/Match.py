@@ -4,9 +4,9 @@ from typing import Optional
 
 class Match(object):
     def __init__(self):
-        self.id: Optional[int] = None
-        self.playgroundId: Optional[int] = None
-        self.plannedStartTime: Optional[int] = None
+        self.id: int = int()
+        self.playgroundId: int = int()
+        self.plannedStartTime: str = str()
 
     @staticmethod
     def parse(json: dict):

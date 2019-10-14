@@ -2,7 +2,7 @@
 import argparse
 import time
 import requests
-import json
+import jsonpickle
 import os
 from typing import List
 from Shared.Configuration import Configuration
@@ -19,6 +19,7 @@ from pathlib import Path
 
 class TvPlayer(object):
     def __init__(self):
+        self.debugging = False
         self.playing: TvState = TvState.IDLE
 
         config = Configuration()
@@ -41,6 +42,7 @@ class TvPlayer(object):
         self.currentMatchId: int = 0
 
     def start(self, debugging: bool):
+        self.debugging = debugging
         self.play_intermezzo()
 
         while True:
@@ -66,26 +68,26 @@ class TvPlayer(object):
                 if state.currentMatchId == self.currentMatchId:
                     self.currentMatchId = 0
                     self.play_intermezzo()
-                self.mark_even_as_consumed(TvEventType(state.eventType))
+                self.mark_event_as_consumed(TvEventType(state.eventType))
             elif state.eventType == TvEventType.PAUSE:
                 if state.currentMatchId == self.currentMatchId:
                     self.pause()
-                self.mark_even_as_consumed(TvEventType(state.eventType))
+                self.mark_event_as_consumed(TvEventType(state.eventType))
             elif state.eventType == TvEventType.PLAY:
                 self.currentMatchId = state.currentMatchId
                 self.play_recording(
                     SharedFunctions.get_output_video(self.ftp_video_path,
                                                      state.playgroundId,
                                                      SharedFunctions.from_post_time(state.currentMatchStartTime)))
-                self.mark_even_as_consumed(TvEventType(state.eventType))
+                self.mark_event_as_consumed(TvEventType(state.eventType))
             elif state.eventType == TvEventType.FAST_FORWARD:
                 if state.currentMatchId == self.currentMatchId:
                     self.fast_forward()
-                self.mark_even_as_consumed(TvEventType(state.eventType))
+                self.mark_event_as_consumed(TvEventType(state.eventType))
             elif state.eventType == TvEventType.REWIND:
                 if state.currentMatchId == self.currentMatchId:
                     self.rewind()
-                self.mark_even_as_consumed(TvEventType(state.eventType))
+                self.mark_event_as_consumed(TvEventType(state.eventType))
             else:
                 self.currentMatchId = 0
                 self.play_intermezzo()
@@ -110,18 +112,22 @@ class TvPlayer(object):
                 return []
 
             matches: List[Match] = []
-            dict_list = json.loads(response.text)
+            dict_list = jsonpickle.decode(response.text)
             for item in dict_list:
                 matches.append(Match.parse(item))
 
             return matches
-        except:
+        except Exception as ex:
+            if self.debugging:
+                print(ex)
             pass
 
     def delete_matches_on_server(self, matches: List[Match]):
         try:
             requests.delete(url=self.delete_matches_url, data=SharedFunctions.to_post_body(matches))
-        except:
+        except Exception as ex:
+            if self.debugging:
+                print(ex)
             pass
 
     def play_intermezzo(self):
@@ -145,16 +151,19 @@ class TvPlayer(object):
         self.playing = TvState.INTERMEZZO
 
     def play_recording(self, recording_path: str):
-        video_path = Path(recording_path)
-        print("")
-        print("Playing video {}".format(video_path))
+        if os.path.isfile(recording_path):
+            video_path = Path(recording_path)
+            print("")
+            print("Playing video {}".format(video_path))
 
-        if self.player is not None and self.is_player_alive():
-            self.player.stop()
+            if self.player is not None and self.is_player_alive():
+                self.player.stop()
 
-        self.player = OMXPlayer(video_path, args=self.player_args)
-        self.player.play()
-        self.playing = TvState.PLAYING
+            self.player = OMXPlayer(video_path, args=self.player_args)
+            self.player.play()
+            self.playing = TvState.PLAYING
+        else:
+            self.play_intermezzo()
 
     def fast_forward(self):
         if self.player is not None and self.is_player_alive():
@@ -176,8 +185,10 @@ class TvPlayer(object):
                 print(response.text)
             if response is None:
                 return Tv()
-            return Tv.parse(json.loads(response.text))
-        except:
+            return Tv.parse(jsonpickle.decode(response.text))
+        except Exception as ex:
+            if self.debugging:
+                print(ex)
             pass
 
     def send_heart_beat(self):
@@ -186,27 +197,33 @@ class TvPlayer(object):
                              data=SharedFunctions.to_post_body(
                                  {'id': self.tv_id}
                              ))
-        except:
+        except Exception as ex:
+            if self.debugging:
+                print(ex)
             pass
 
     def is_player_alive(self):
         try:
             self.player.is_playing()
             return True
-        except:
-            return False
+        except Exception as ex:
+            if self.debugging:
+                print(ex)
+            pass
 
-    def mark_even_as_consumed(self, event_consumed: TvEventType):
+    def mark_event_as_consumed(self, event_consumed: TvEventType):
         try:
             HttpService.post(url=self.mark_event_as_consumed_url,
                              data=SharedFunctions.to_post_body(
                                  {
                                      'tvId': self.tv_id,
                                      'matchId': self.currentMatchId,
-                                     'tvEventType': event_consumed
+                                     'tvEventType': event_consumed.name
                                  }
                              ))
-        except:
+        except Exception as ex:
+            if self.debugging:
+                print(ex)
             pass
 
 
