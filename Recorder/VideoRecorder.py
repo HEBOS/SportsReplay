@@ -44,16 +44,16 @@ class VideoRecorder(object):
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_START_SCHEDULED,
                                                                    RecordScreenInfoOperation.SET,
                                                                    time.strftime("%Y-%m-%d-%H-%M",
-                                                                                 time.localtime(
+                                                                                 time.gmtime(
                                                                                      self.camera.start_of_capture))),
                                          RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_STARTED,
                                                                    RecordScreenInfoOperation.SET,
                                                                    time.strftime("%Y-%m-%d-%H-%M",
-                                                                                 time.localtime(time.time()))),
+                                                                                 time.gmtime(time.time()))),
                                          RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_END_SCHEDULED,
                                                                    RecordScreenInfoOperation.SET,
                                                                    time.strftime("%Y-%m-%d-%H-%M",
-                                                                                 time.localtime(
+                                                                                 time.gmtime(
                                                                                      self.camera.end_of_capture)))
                                          ])
         except EOFError:
@@ -118,7 +118,8 @@ class VideoRecorder(object):
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                                                    RecordScreenInfoOperation.SET,
                                                                    "Expected ending {}. Ending at {}".
-                                                                   format(self.camera.end_of_capture, time.time()))])
+                                                                   format(time.gmtime(self.camera.end_of_capture),
+                                                                          time.gmtime(time.time())))])
         except EOFError:
             pass
         except socket.error as e:

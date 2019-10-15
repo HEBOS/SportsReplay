@@ -40,6 +40,7 @@ class TvPlayer(object):
 
         self.player: OMXPlayer = OMXPlayer(Path(self.intermezzo_path))
         self.currentMatchId: int = 0
+        self.played_video = ""
 
     def start(self, debugging: bool):
         self.debugging = debugging
@@ -58,6 +59,16 @@ class TvPlayer(object):
 
                 # Get all matches marked for deletion
                 self.matches_cleanup()
+
+                print("")
+                print("Playground: {}".format(self.playground))
+                if self.currentMatchId > 0:
+                    print("Most recent active match: {}".format(self.currentMatchId))
+
+                print("")
+                print("Executing action: {}".format(self.playing.name))
+                if self.playing == TvState.PLAYING:
+                    print("Playing video: {}".format(self.played_video))
 
     def handle_player_events(self):
         state = self.get_tv_state()
@@ -98,7 +109,8 @@ class TvPlayer(object):
             video_file = SharedFunctions.get_output_video(self.ftp_video_path,
                                                           match.playgroundId,
                                                           SharedFunctions.from_post_time(match.plannedStartTime))
-            control_file = video_file.replace(".mp4", ".ready")
+            control_file = video_file.replace(".{extension}".format(extension=SharedFunctions.VIDEO_EXTENSION),
+                                              ".ready")
             if os.path.isfile(video_file):
                 os.remove(video_file)
             if os.path.isfile(control_file):
@@ -153,8 +165,6 @@ class TvPlayer(object):
     def play_recording(self, recording_path: str):
         if os.path.isfile(recording_path):
             video_path = Path(recording_path)
-            print("")
-            print("Playing video {}".format(video_path))
 
             if self.player is not None and self.is_player_alive():
                 self.player.stop()
@@ -163,6 +173,7 @@ class TvPlayer(object):
             self.player.play()
             self.playing = TvState.PLAYING
         else:
+            print("File {} is not found. Playing Intermezzo.".format(recording_path))
             self.play_intermezzo()
 
     def fast_forward(self):
