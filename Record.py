@@ -142,7 +142,7 @@ class Record(object):
         # For each camera defined in the settings, generate one process
         for v in video_addresses:
             i += 1
-            # If video source is not camera, but mp4 file, fix the path
+            # If video source is not camera, but the video file, fix the path
             if ".mp4" in v:
                 source_path = "filesrc location={location} " \
                               "! qtdemux " \

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from ftplib import FTP
 import os
 import time
@@ -24,7 +25,7 @@ class FtpUploader(object):
             if create_terminator_file:
                 with open(source_path + ".ready", 'w+') as fp:
                     fp.write("Video file uploaded at {}".format(time.strftime("%d-%m-%Y-%H-%M",
-                                                                              time.localtime(time.time()))))
+                                                                              time.gmtime(time.time()))))
 
                     ftp.storlines(cmd='STOR ' + target_file_name + ".ready", fp=fp)
             ftp.close()

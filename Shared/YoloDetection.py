@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 class YoloDetection(object):
     def __init__(self, class_id, class_name, confidence, left, top, width, height):
         self.ClassName: str = class_name

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 LINQ analog for Python
 Contact: purin.anton@gmail.com

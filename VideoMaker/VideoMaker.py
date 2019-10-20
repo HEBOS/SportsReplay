@@ -10,6 +10,7 @@ import socket
 import errno
 from Shared.CapturedFrame import CapturedFrame
 from Shared.SharedFunctions import SharedFunctions
+from Shared.CvFunctions import CvFunctions
 from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.DefinedPolygon import DefinedPolygon
 from Shared.RecordScreenInfo import RecordScreenInfo
@@ -143,7 +144,7 @@ class VideoMaker(object):
                 self.detection_connection = None
                 self.screen_connection.close()
                 self.screen_connection = None
-                SharedFunctions.release_open_cv()
+                CvFunctions.release_open_cv()
             except EOFError:
                 pass
             except socket.error as e:

@@ -3,28 +3,31 @@ import os
 import time
 import datetime
 import ntpath
-import cv2
 import sys
+from dateutil.parser import parse as dateParser
 from Shared.Point import Point
 from typing import List
+import jsonpickle
 
 
 class SharedFunctions(object):
+    VIDEO_EXTENSION: str = "mp4v"
     @staticmethod
     def get_recording_path(root_path: str, playground: int, planned_start_time: float):
         return os.path\
             .normpath(r"{path}/{playground}-{timestamp}"
                       .format(path=root_path,
                               playground=str(playground),
-                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(planned_start_time))))
+                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.gmtime(planned_start_time))))
 
     @staticmethod
     def get_output_video(root_path: str, playground: int, planned_start_time: float):
         return os.path\
-            .normpath(r"{path}/{playground}-{timestamp}.mp4v"
+            .normpath(r"{path}/{playground}-{timestamp}.{extension}"
                       .format(path=root_path,
                               playground=str(playground),
-                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.localtime(planned_start_time))))
+                              timestamp=time.strftime("%Y-%m-%d-%H-%M", time.gmtime(planned_start_time)),
+                              extension=SharedFunctions.VIDEO_EXTENSION))
 
     @staticmethod
     def get_json_file_path(file_path: str):
@@ -93,13 +96,6 @@ class SharedFunctions(object):
         return contours
 
     @staticmethod
-    def release_open_cv():
-        cv2.waitKey(1)
-        cv2.destroyAllWindows()
-        for i in range(1, 5):
-            cv2.waitKey(1)
-
-    @staticmethod
     def planned_start_time(hour: int, minute: int):
         today = datetime.datetime.now()
         planned_start_time = datetime.datetime(today.year, today.month, today.day, hour, minute, 0, 0)
@@ -120,7 +116,26 @@ class SharedFunctions(object):
         return "{}, line {}\n{}".format(file_name, exc_tb.tb_lineno, ex)
 
     @staticmethod
-    def to_post_time(value: time):
+    def get_time_zone_offset():
+        ts = time.time()
+        utc_offset = (datetime.datetime.fromtimestamp(ts) -
+                      datetime.datetime.utcfromtimestamp(ts)).total_seconds()
+        return utc_offset
+
+    @staticmethod
+    def to_post_time(value: time) -> str:
         if value is None:
             return None
-        return int(round(value * 1000))
+        formatted_date = datetime.datetime.utcfromtimestamp(value).isoformat()
+        return formatted_date[:-3]
+
+    @staticmethod
+    def from_post_time(value: str) -> time:
+        if value is None:
+            return None
+        date = dateParser(value)
+        return (time.mktime(date.timetuple()) + date.microsecond / 1E6) + SharedFunctions.get_time_zone_offset()
+
+    @staticmethod
+    def to_post_body(data) -> str:
+        return jsonpickle.encode(data)

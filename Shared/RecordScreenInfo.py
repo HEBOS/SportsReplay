@@ -1,4 +1,4 @@
-import time
+#!/usr/bin/env python3
 from Shared.TerminalItem import TerminalItem
 from Shared.EasyTerminal import EasyTerminal
 
