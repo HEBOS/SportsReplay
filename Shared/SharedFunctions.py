@@ -123,18 +123,18 @@ class SharedFunctions(object):
         return utc_offset
 
     @staticmethod
-    def to_post_time(value: time):
+    def to_post_time(value: time) -> str:
         if value is None:
             return None
-        return int(round((value - SharedFunctions.get_time_zone_offset()) * 1000))
+        formatted_date = datetime.datetime.utcfromtimestamp(value).isoformat()
+        return formatted_date[:-3]
 
     @staticmethod
     def from_post_time(value: str) -> time:
         if value is None:
             return None
         date = dateParser(value)
-        utc_time = time.mktime(date.timetuple()) + date.microsecond / 1E6
-        return time.localtime(utc_time + SharedFunctions.get_time_zone_offset())
+        return (time.mktime(date.timetuple()) + date.microsecond / 1E6) + SharedFunctions.get_time_zone_offset()
 
     @staticmethod
     def to_post_body(data) -> str:

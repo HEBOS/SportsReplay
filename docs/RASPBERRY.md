@@ -84,3 +84,10 @@ Full instructions can be found in [Setting up the Tunneling](../README.md) secti
 
 `pip3 install omxplayer-wrapper`
 
+## Enabling HDMI1 port
+`sudo nano /boot/config.txt`
+
+Enable the following flags
+    
+    hdmi_force_hotplug=1
+    hdmi_drive=2
