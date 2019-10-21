@@ -6,32 +6,53 @@
 
 3. Open Configuration, and change:
 
-    Basic Information
+    System Settings -> Basic Information
  
-    - Device Name to state sports-replay-camera-X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
+    - Device Name to state sr-camera-X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
     
     - Device No. to state X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
     
-    Image Settings
-    - Un-tick all options under OSD settings
+    System Settings -> Time Settings
+
+    - Tick NTP, and set interval to 60 minutes
     
-    - Turn on Smart Supplement Light
-    
-    - Set Exposure Settings to 1/250
-    
-    Network WLAN
+    Basic Settings -> NAT
+    - Device Name to state sr-camera-X
+        
+    Network -> Basic Settings -> WLAN
     
     - Set IP address to your preference, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
-    
+    - Do not forget to add camera MAC address to the router reservation table, and assign ip address assigned above 
     - Set Default Gateway to point to IP address of the router, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
+    - Set primary DNS to 8.8.8.8
     
-    Ports
+    Network -> Advanced Network -> WiFi
+    - Select WiFi network
+    - Select security mode WPA2-personal
+    - Select encryption type AES
+    - Set password (key 1)
+    - Un-tick Enable WPS
+    
+    Network -> Basic Settings -> Ports
   
     - Enable RTSP protocol on port 554
     
     System - User Management
     
-    - Add "sportsreplay" user for RTSP authentication, use the same password, as for Jetson, and Raspberry devices at that business client.
+    - Add "sportsreplay" user for RTSP authentication, and  make sure to put the same password to [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0), and sports-replay.ini, as part of video setting in section __recorder__.
+    
+    Image Settings -> OSD Settings
+    
+    - Un-tick all options under OSD settings
+    
+    Image Settings -> Display Settings -> Day/Night switch
+    
+    - Set Day/Night Switch to Day 
+    - Turn on Smart Supplement Light
+    
+    Image Settings -> Display Settings -> Exposure Settings
+    
+    - Set Exposure Settings to 1/250
     
     Video/Audio Settings
     
