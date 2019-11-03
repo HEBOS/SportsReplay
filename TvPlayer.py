@@ -34,10 +34,9 @@ class TvPlayer(object):
 
         self.heart_beat_post_url = config.api["base-url"] + config.api["tv-heartbeat"]
         self.upload_url = config.api["base-url"] + config.api["movie-upload-url"]
-        self.tv_state_url = config.api["base-url"] + config.api["tv-state-url"].replace("{}", self.tv_id)
+        self.tv_state_url = config.api["base-url"] + config.api["tv-state-url"]
         self.mark_event_as_consumed_url = config.api["base-url"] + config.api["mark-event-as-consumed-url"]
-        self.matches_for_deletion_url = config.api["base-url"] + config.api["matches-for-deletion-url"]\
-            .replace("{}", self.playground)
+        self.matches_for_deletion_url = config.api["base-url"] + config.api["matches-for-deletion-url"]
         self.delete_matches_url = config.api["base-url"] + config.api["delete-matches-url"]
 
         self.intermezzo_path = os.path.join(os.getcwd(), config.tv_box["intermezzo"])
@@ -50,6 +49,11 @@ class TvPlayer(object):
         self.currentMatchId: int = 0
         self.played_video = ""
 
+        self.cleanup_thread_lock = threading.Lock()
+        self.cleanup_thread_active = True
+        self.cleanup_thread = threading.Thread(target=self.matches_cleanup)
+        self.cleanup_thread.start()
+
     def start(self, debugging: bool):
         self.debugging = debugging
         self.disable_terminal()
@@ -59,16 +63,13 @@ class TvPlayer(object):
         while True:
             try:
                 # Send heart beat to server every 5 seconds
-                if time.time() - last_call > 0.5:
+                if time.time() - last_call > 0.2:
                     last_call = time.time()
                     # Send heart beats, so that our service is aware that tv player is active
-                    self.send_heart_beat()
+                    #self.send_heart_beat()
 
                     # Get tv state and activate different player state accordingly
                     self.handle_player_events()
-
-                    # Get all matches marked for deletion
-                    self.matches_cleanup()
 
                     print("")
                     print("Playground: {}".format(self.playground))
@@ -86,6 +87,9 @@ class TvPlayer(object):
 
     def exit_handler(self):
         self.enable_terminal()
+        with self.cleanup_thread_lock:
+            self.cleanup_thread_active = False
+        self.cleanup_thread.join()
 
     def handle_player_events(self):
         events = self.get_tv_events()
@@ -128,22 +132,28 @@ class TvPlayer(object):
                 self.previous_event = event.eventType
 
     def matches_cleanup(self):
-        matches: List[Match] = self.get_matches_for_cleanup()
-        for match in matches:
-            video_file = SharedFunctions.get_output_video(self.ftp_video_path,
-                                                          match.playgroundId,
-                                                          SharedFunctions.from_post_time(match.plannedStartTime))
-            control_file = video_file.replace(".{extension}".format(extension=SharedFunctions.VIDEO_EXTENSION),
-                                              ".ready")
-            if os.path.isfile(video_file):
-                os.remove(video_file)
-            if os.path.isfile(control_file):
-                os.remove(control_file)
-        self.delete_matches_on_server(matches)
+        cleanup_thread_active = True
+        while cleanup_thread_active:
+            with self.cleanup_thread_lock:
+                cleanup_thread_active = self.cleanup_thread_active
+
+            matches: List[Match] = self.get_matches_for_cleanup()
+            for match in matches:
+                video_file = SharedFunctions.get_output_video(self.ftp_video_path,
+                                                              match.playgroundId,
+                                                              SharedFunctions.from_post_time(match.plannedStartTime))
+                control_file = video_file.replace(".{extension}".format(extension=SharedFunctions.VIDEO_EXTENSION),
+                                                  ".{extension}.ready".format(extension=SharedFunctions.VIDEO_EXTENSION))
+                if os.path.isfile(video_file):
+                    os.remove(video_file)
+                if os.path.isfile(control_file):
+                    os.remove(control_file)
+                self.delete_match_on_server(match.id)
+            time.sleep(5)
 
     def get_matches_for_cleanup(self) -> List[Match]:
         try:
-            response = requests.get(url=self.matches_for_deletion_url)
+            response = requests.get(url=self.matches_for_deletion_url.replace("{}", str(self.playground)))
             if response is None:
                 return []
 
@@ -159,9 +169,9 @@ class TvPlayer(object):
             print(exc_type, file_name, exc_tb.tb_lineno)
             pass
 
-    def delete_matches_on_server(self, matches: List[Match]):
+    def delete_match_on_server(self, matchId: int):
         try:
-            requests.delete(url=self.delete_matches_url, data=SharedFunctions.to_post_body(matches))
+            requests.delete(url=self.delete_matches_url.replace("{}", str(matchId)))
         except Exception as ex:
             exc_type, exc_obj, exc_tb = sys.exc_info()
             file_name = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
@@ -224,11 +234,20 @@ class TvPlayer(object):
 
     def fast_forward(self):
         if self.player is not None and self.is_player_alive():
-            self.player.action(actionKeys.FAST_FORWARD)
+            position = self.player.position()
+            duration = self.player.duration()
+            if position + 30 < duration:
+                self.player.set_position(position + 30)
+            else:
+                self.player.set_position(duration - 1)
 
     def rewind(self):
         if self.player is not None and self.is_player_alive():
-            self.player.action(actionKeys.REWIND)
+            position = self.player.position()
+            if position - 10 >= 0:
+                self.player.set_position(position - 10)
+            else:
+                self.player.set_position(0)
 
     def pause(self):
         if self.player is not None and self.is_player_alive():
@@ -236,7 +255,7 @@ class TvPlayer(object):
 
     def get_tv_events(self) -> List[TvEvent]:
         try:
-            response = requests.get(url=self.tv_state_url)
+            response = requests.get(url=self.tv_state_url.replace("{}", str(self.tv_id)))
             if response is not None:
                 print("")
                 print(response.text)
