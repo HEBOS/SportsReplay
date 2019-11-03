@@ -134,7 +134,7 @@ class SharedFunctions(object):
         if value is None:
             return None
         date = dateParser(value)
-        return (time.mktime(date.timetuple()) + date.microsecond / 1E6) + SharedFunctions.get_time_zone_offset()
+        return time.mktime(date.timetuple()) + date.microsecond / 1E6 + SharedFunctions.get_time_zone_offset()
 
     @staticmethod
     def to_post_body(data) -> str:
