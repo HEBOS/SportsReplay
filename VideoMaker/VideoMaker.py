@@ -5,7 +5,7 @@ import numpy as np
 import multiprocessing as mp
 from typing import List
 import os
-import sys
+import threading
 import socket
 import errno
 from Shared.CapturedFrame import CapturedFrame
@@ -16,6 +16,9 @@ from Shared.DefinedPolygon import DefinedPolygon
 from Shared.RecordScreenInfo import RecordScreenInfo
 from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
+from Shared.Configuration import Configuration
+from Shared.LogoRenderer import LogoRenderer
+from PIL import ImageFont, ImageDraw, Image
 
 
 class VideoMaker(object):
@@ -23,6 +26,7 @@ class VideoMaker(object):
                  latency: float, detection_connection: mp.connection.Connection,
                  polygons: List[DefinedPolygon], width: int, height: int, fps: int,
                  screen_connection: mp.connection.Connection, debugging: bool):
+        self.config = Configuration()
         self.playground = playground
         self.video_queue = video_queue
         self.output_video = output_video
@@ -40,6 +44,16 @@ class VideoMaker(object):
         self.active_camera_id = 1
         self.active_detection = None
 
+        self.time_format = self.config.common["time-format"]
+        self.date_format = self.config.common["date-format"]
+        self.resized_overlay_image: np.ndarray = LogoRenderer.get_resized_overlay(
+            os.path.join(os.getcwd(), self.config.video_maker["logo-path"]), self.width)
+        self.logo_font: ImageFont.FreeTypeFont = LogoRenderer.get_logo_font(
+            os.path.join(os.getcwd(), self.config.video_maker["roboto-regular-font-path"]))
+
+        self.writer = None
+        self.write_lock = threading.Lock()
+
     def start(self):
         self.video_creating = True
         output_pipeline = "appsrc " \
@@ -54,11 +68,11 @@ class VideoMaker(object):
                                                                video=self.output_video)
 
         try:
-            writer = cv2.VideoWriter(output_pipeline,
-                                     cv2.VideoWriter_fourcc(*'mp4v'),
-                                     self.fps,
-                                     (self.width, self.height),
-                                     True)
+            self.writer = cv2.VideoWriter(output_pipeline,
+                                          cv2.VideoWriter_fourcc(*'mp4v'),
+                                          self.fps,
+                                          (self.width, self.height),
+                                          True)
 
             i = 0
             warmed_up = False
@@ -101,7 +115,9 @@ class VideoMaker(object):
                                 if self.active_detection is not None and self.debugging:
                                     self.draw_debug_info(captured_frame)
 
-                                writer.write(captured_frame.frame)
+                                logo_thread = threading.Thread(target=self.draw_logo,
+                                                               args=(captured_frame,))
+                                logo_thread.start()
 
                                 if i % self.fps == 0:
                                     self.screen_connection.send(
@@ -114,8 +130,7 @@ class VideoMaker(object):
                     if warmed_up:
                         if time.time() - last_job > 5:
                             break
-
-            writer.release()
+            self.writer.release()
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                            RecordScreenInfoOperation.SET,
@@ -172,3 +187,12 @@ class VideoMaker(object):
         frame_info = int(captured_frame.snapshot_time) + captured_frame.frame_number / 10000
         cv2.putText(captured_frame.frame, str(frame_info),
                     (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
+
+    def draw_logo(self, captured_frame: CapturedFrame):
+        with self.write_lock:
+            self.writer.write(LogoRenderer.write(captured_frame.frame,
+                                                 self.resized_overlay_image,
+                                                 self.logo_font,
+                                                 self.date_format,
+                                                 self.time_format,
+                                                 captured_frame.snapshot_time))

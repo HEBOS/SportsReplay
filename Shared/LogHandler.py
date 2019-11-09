@@ -30,7 +30,9 @@ class LogHandler(object):
         self.heart_beat_lock = threading.Lock()
         self.heart_beat = RecordHeartBeat(self.playground, self.planned_start_time, self.planned_end_time)
 
-        path = os.path.join(config.common["dump-path"], config.common["log-files"])
+        dump_path = config.common["dump-path"]
+        path = os.path.join(dump_path, config.common["log-files"])
+        SharedFunctions.ensure_directory_exists(dump_path)
         SharedFunctions.ensure_directory_exists(path)
         for handler in logging.root.handlers[:]:
             logging.root.removeHandler(handler)
