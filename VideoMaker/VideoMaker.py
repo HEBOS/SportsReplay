@@ -116,7 +116,7 @@ class VideoMaker(object):
                                     self.draw_debug_info(captured_frame)
 
                                 logo_thread = threading.Thread(target=self.draw_logo,
-                                                               args=(captured_frame, time.time()))
+                                                               args=(captured_frame,))
                                 logo_thread.start()
 
                                 if i % self.fps == 0:
@@ -188,12 +188,11 @@ class VideoMaker(object):
         cv2.putText(captured_frame.frame, str(frame_info),
                     (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
-    def draw_logo(self, captured_frame: CapturedFrame, current_time: time):
-        frame_with_logo = LogoRenderer.write(captured_frame.frame,
-                                             self.resized_overlay_image,
-                                             self.logo_font,
-                                             self.date_format,
-                                             self.time_format,
-                                             current_time)
+    def draw_logo(self, captured_frame: CapturedFrame):
         with self.write_lock:
-            self.writer.write(frame_with_logo)
+            self.writer.write(LogoRenderer.write(captured_frame.frame,
+                                                 self.resized_overlay_image,
+                                                 self.logo_font,
+                                                 self.date_format,
+                                                 self.time_format,
+                                                 captured_frame.snapshot_time))

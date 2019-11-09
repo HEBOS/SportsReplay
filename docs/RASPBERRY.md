@@ -77,7 +77,7 @@ __Add__
 `sudo service vsftpd restart`
 
 ## Setting up The Tunneling
-Full instructions can be found in [Setting up the Tunneling](../README.md) section.
+Full instructions can be found in [Setting up the Tunneling](COMMON.md) section.
 
 ## The Prerequisites for The Player
 `sudo apt-get update && sudo apt-get install -y libdbus-1{,-dev}`

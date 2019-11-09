@@ -11,14 +11,17 @@ class LogoRenderer(object):
         rect_overlay = background.copy()
         rows, cols, channels = overlay.shape
 
-        edge = 10
-        logo_start_y = 20
-        logo_end_y = 20 + rows
-        logo_start_x = 20
-        logo_end_x = 20 + cols
+        brows, bcols, bchannels = background.shape
+        multiplier = bcols / 1280
+
+        edge = int(10 * multiplier)
+        logo_start_y = int(20 * multiplier)
+        logo_end_y = int(20 * multiplier) + rows
+        logo_start_x = int(20 * multiplier)
+        logo_end_x = int(20 * multiplier) + cols
 
         rect_start_x = logo_start_x - edge
-        rect_end_x = logo_start_x + cols + 100 + edge
+        rect_end_x = logo_start_x + cols + int(100 * multiplier) + edge
         rect_start_y = logo_start_x - edge
         rect_end_y = logo_start_y + rows + edge
 
@@ -30,14 +33,29 @@ class LogoRenderer(object):
         overlay = cv2.addWeighted(background[logo_start_y:logo_end_y, logo_start_x:logo_end_x], 1, overlay, 1, 0)
         background[logo_start_y:logo_end_y, logo_start_x:logo_end_x] = overlay
 
-        background = Image.fromarray(cv2.cvtColor(background, cv2.COLOR_BGR2RGB))
-        draw = ImageDraw.Draw(background)
-        draw.text((155, 20),
-                  time.strftime(date_format, time.localtime(current_time)),
-                  font=font, fill=(255, 255, 255))
-        draw.text((164, 45), time.strftime(time_format, time.localtime(current_time)),
-                  font=font, fill=(255, 255, 255))
-        background = cv2.cvtColor(np.array(background), cv2.COLOR_RGB2BGR)
+        cv2.putText(background,
+                    time.strftime(date_format,
+                                  time.localtime(current_time)),
+                    (int(150 * multiplier),
+                     int(34 * multiplier)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5 * multiplier,
+                    (255, 255, 255),
+                    1,
+                    cv2.LINE_AA,
+                    False)
+
+        cv2.putText(background,
+                    time.strftime(time_format,
+                                  time.localtime(current_time)),
+                    (int(159 * multiplier),
+                     int(60 * multiplier)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5 * multiplier,
+                    (255, 255, 255),
+                    1,
+                    cv2.LINE_AA,
+                    False)
         return background
 
     @staticmethod
@@ -82,6 +100,14 @@ class LogoRenderer(object):
         rows, cols, channels = overlay.shape
         height = int(rows / 1.5 * resolution / 1280)
         return LogoRenderer.image_resize(overlay, height=height)
+
+    @staticmethod
+    def convert_color(img: np.ndarray, color: int) -> np.ndarray:
+        return cv2.cvtColor(img, color)
+        cuda_img = cv2.cuda_GpuMat(cv2.UMat(img))
+        cv2.cuda.cvtColor(cuda_img, color)
+        result = cv2.UMat(cuda_img.download())
+        return result.get()
 
 
 
