@@ -108,3 +108,6 @@ If you need to enable it again, run:
 If you want to start gui, while it is currently disabled, run:
 
 `sudo systemctl start gdm3.service`
+
+## Installing Memory Monitoring Utility
+'sudo pip3 install jetson-stats'

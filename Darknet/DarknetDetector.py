@@ -3,7 +3,7 @@ import numpy
 from Darknet.DarknetBindings import *
 from Shared.YoloDetection import YoloDetection
 from typing import List
-
+import cv2
 
 class DarknetDetector(object):
     def __init__(self, cfg_path: str, weights_path: str, classnames_path: str, original_image_size: tuple):

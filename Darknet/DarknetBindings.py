@@ -2,12 +2,8 @@
 from ctypes import *
 import os
 import random
-import cv2
-from Shared.SharedFunctions import SharedFunctions
 from Shared.YoloDetection import YoloDetection
 from typing import List
-import gc
-import numpy
 
 
 def sample(probs):
@@ -40,7 +36,8 @@ class DETECTION(Structure):
                 ("prob", POINTER(c_float)),
                 ("mask", POINTER(c_float)),
                 ("objectness", c_float),
-                ("sort_class", c_int)]
+                ("sort_class", c_int),
+                ("uc", POINTER(c_float))]
 
 
 class IMAGE(Structure):
@@ -61,7 +58,7 @@ lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
 lib.network_height.restype = c_int
 
-predict = lib.network_predict
+predict = lib.network_predict_ptr
 predict.argtypes = [c_void_p, POINTER(c_float)]
 predict.restype = POINTER(c_float)
 
@@ -76,7 +73,7 @@ copy_image_from_bytes = lib.copy_image_from_bytes
 copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
 
 get_network_boxes = lib.get_network_boxes
-get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int)]
+get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int), c_int]
 get_network_boxes.restype = POINTER(DETECTION)
 
 make_network_boxes = lib.make_network_boxes
@@ -89,7 +86,7 @@ free_detections.argtypes = [POINTER(DETECTION), c_int]
 free_ptrs = lib.free_ptrs
 free_ptrs.argtypes = [POINTER(c_void_p), c_int]
 
-network_predict = lib.network_predict
+network_predict = lib.network_predict_ptr
 network_predict.argtypes = [c_void_p, POINTER(c_float)]
 
 reset_rnn = lib.reset_rnn
@@ -98,6 +95,10 @@ reset_rnn.argtypes = [c_void_p]
 load_net = lib.load_network
 load_net.argtypes = [c_char_p, c_char_p, c_int]
 load_net.restype = c_void_p
+
+load_net_custom = lib.load_network_custom
+load_net_custom.argtypes = [c_char_p, c_char_p, c_int, c_int]
+load_net_custom.restype = c_void_p
 
 do_nms_obj = lib.do_nms_obj
 do_nms_obj.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
@@ -130,6 +131,10 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
+predict_image_letterbox = lib.network_predict_image_letterbox
+predict_image_letterbox.argtypes = [c_void_p, IMAGE]
+predict_image_letterbox.restype = POINTER(c_float)
+
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -140,14 +145,15 @@ def classify(net, meta, im):
     return res
 
 
-def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45) -> List[YoloDetection]:
+def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45, debug=False) -> List[YoloDetection]:
     num = c_int(0)
     pnum = pointer(num)
+    letter_box = 0
     predict_image(net, image)
-    dets = get_network_boxes(net, image.w, image.h, thresh, hier_thresh, None, 0, pnum)
+    dets = get_network_boxes(net, image.w, image.h, thresh, hier_thresh, None, 0, pnum, letter_box)
     num = pnum[0]
     if nms:
-        do_nms_obj(dets, num, meta.classes, nms)
+        do_nms_sort(dets, num, meta.classes, nms)
 
     res = []
     for j in range(num):

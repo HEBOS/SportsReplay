@@ -44,7 +44,7 @@ class DetectorTest(object):
                     if detected_frame:
                         detected_frames += 1
 
-        print("GPU utilisation equals {} fps.".format(int(20 / (time.time() - started_at))))
+        print("GPU utilisation equals {} fps.".format(float(20 / (time.time() - started_at))))
         print("Detected objects: {}".format(balls_identified))
         print("Frames with the ball: {}/{}".format(detected_frames, 20))
 
