@@ -62,6 +62,8 @@ class VideoRecorder(object):
             pass
 
         capture = None
+        total_frames = 0
+
         try:
             # Initialise the capture
             capture = cv2.VideoCapture(self.camera.source, cv2.CAP_GSTREAMER)
@@ -73,6 +75,7 @@ class VideoRecorder(object):
                 # Grab the next frame. Used for more precise results.
                 grabbed = capture.grab()
                 if grabbed:
+                    total_frames += 1
                     frame_number += 1
                     if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
                         frame_number = 1
@@ -154,6 +157,7 @@ class VideoRecorder(object):
                 self.video_queue.mark_as_done()
                 self.ai_queue = None
                 self.video_queue = None
+                print("TOTAL FRAMES GRABBED: {}".format(total_frames))
             except EOFError:
                 pass
             except socket.error as e:

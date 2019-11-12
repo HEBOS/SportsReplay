@@ -56,6 +56,21 @@ class VideoMaker(object):
 
     def start(self):
         self.video_creating = True
+
+        output_pipeline = "appsrc " \
+                          "! capsfilter caps='video/x-raw,format=(string)I420,framerate=(fraction){fps}/1' " \
+                          "! videoconvert " \
+                          "! capsfilter caps='video/x-raw,format=(string)BGRx,interpolation-method=0' " \
+                          "! nvvideoconvert " \
+                          "! capsfilter caps='video/x-raw(memory:NVMM)' " \
+                          "! nvv4l2h264enc " \
+                          "! h264parse " \
+                          "! qtmux " \
+                          "! filesink location={video}".format(width=self.width,
+                                                               height=self.height,
+                                                               fps=self.fps,
+                                                               video=self.output_video)
+
         output_pipeline = "appsrc " \
                           "! videoconvert " \
                           "! video/x-raw,width={width},height={height},format=I420,framerate={fps}/1 " \
@@ -189,6 +204,8 @@ class VideoMaker(object):
                     (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
     def draw_logo(self, captured_frame: CapturedFrame):
+        self.writer.write(captured_frame.frame)
+        return
         with self.write_lock:
             self.writer.write(LogoRenderer.write(captured_frame.frame,
                                                  self.resized_overlay_image,

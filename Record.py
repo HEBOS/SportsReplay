@@ -148,15 +148,18 @@ class Record(object):
                               "! qtdemux " \
                               "! queue " \
                               "! h264parse " \
-                              "! omxh264dec " \
-                              "! video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1 " \
+                              "! nvv4l2decoder " \
+                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width}," \
+                              "height=(int){height},format=(string)NV12, framerate=(fraction){fps}/1'" \
+                              "! nvvidconv " \
+                              "! video/x-raw,format=BGRx " \
                               "! videoconvert " \
-                              "! video/x-raw,format=BGR " \
-                              "! appsink sync=0".format(location=os.path.normpath(r"{}".format(v)),
-                                                        fps=fps,
-                                                        width=width,
-                                                        height=height)
-
+                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
+                              "! queue " \
+                              "! appsink".format(location=os.path.normpath(r"{}".format(v)),
+                                                 fps=fps,
+                                                 width=width,
+                                                 height=height)
             else:
                 source_path = "rtspsrc location={location} latency=2000 " \
                               " user-id={user} user-pw={password} " \
@@ -166,7 +169,8 @@ class Record(object):
                               "! h264parse " \
                               "! omxh264dec " \
                               "! video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1 " \
-                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 " \
+                              "! queue " \
+                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
                               "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
                               "! videoconvert " \
                               "! video/x-raw,format=BGR " \
