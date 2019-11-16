@@ -5,6 +5,7 @@ import numpy as np
 import multiprocessing as mp
 from typing import List
 import os
+import gc
 import threading
 import socket
 import errno
@@ -18,7 +19,6 @@ from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 from Shared.Configuration import Configuration
 from Shared.LogoRenderer import LogoRenderer
-from PIL import ImageFont, ImageDraw, Image
 
 
 class VideoMaker(object):
@@ -37,7 +37,6 @@ class VideoMaker(object):
         self.height = height
         self.debugging = debugging
         self.fps = fps
-        self.video_creating = False
         self.screen_connection = screen_connection
 
         # We assume that the active camera is 1
@@ -48,114 +47,119 @@ class VideoMaker(object):
         self.date_format = self.config.common["date-format"]
         self.resized_overlay_image: np.ndarray = LogoRenderer.get_resized_overlay(
             os.path.join(os.getcwd(), self.config.video_maker["logo-path"]), self.width)
-        self.logo_font: ImageFont.FreeTypeFont = LogoRenderer.get_logo_font(
-            os.path.join(os.getcwd(), self.config.video_maker["roboto-regular-font-path"]))
 
         self.writer = None
         self.write_lock = threading.Lock()
 
     def start(self):
-        self.video_creating = True
-
         output_pipeline = "appsrc " \
                           "! capsfilter caps='video/x-raw,format=(string)I420,framerate=(fraction){fps}/1' " \
                           "! videoconvert " \
-                          "! capsfilter caps='video/x-raw,format=(string)BGRx,interpolation-method=0' " \
+                          "! capsfilter caps='video/x-raw,format=(string)BGRx,interpolation-method=1' " \
                           "! nvvideoconvert " \
                           "! capsfilter caps='video/x-raw(memory:NVMM)' " \
-                          "! nvv4l2h264enc " \
-                          "! h264parse " \
+                          "! nvv4l2h265enc maxperf-enable=true " \
+                          "! h265parse " \
                           "! qtmux " \
                           "! filesink location={video}".format(width=self.width,
                                                                height=self.height,
                                                                fps=self.fps,
                                                                video=self.output_video)
 
-        output_pipeline = "appsrc " \
-                          "! videoconvert " \
-                          "! video/x-raw,width={width},height={height},format=I420,framerate={fps}/1 " \
-                          "! omxh264enc " \
-                          "! h264parse " \
-                          "! qtmux " \
-                          "! filesink location={video}".format(width=self.width,
-                                                               height=self.height,
-                                                               fps=self.fps,
-                                                               video=self.output_video)
+        if self.debugging:
+            print("gst-launch-1.0 {}".format(output_pipeline))
 
+        self.writer = cv2.VideoWriter(output_pipeline,
+                                      cv2.VideoWriter_fourcc(*'mp4v'),
+                                      self.fps,
+                                      (self.width, self.height),
+                                      True)
         try:
-            self.writer = cv2.VideoWriter(output_pipeline,
-                                          cv2.VideoWriter_fourcc(*'mp4v'),
-                                          self.fps,
-                                          (self.width, self.height),
-                                          True)
-
             i = 0
             warmed_up = False
             last_job = time.time()
             while True:
-                if not self.video_queue.is_empty():
-                    last_job = time.time()
-                    warmed_up = True
-                    i += 1
+                try:
+                    if not self.video_queue.is_empty():
+                        last_job = time.time()
+                        warmed_up = True
+                        i += 1
 
-                    captured_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
-                    self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
-                                                                           RecordScreenInfoOperation.SET,
-                                                                           self.video_queue.qsize()),
-                                                 RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
-                                                                           RecordScreenInfoOperation.SET,
-                                                                           "yes")
-                                                 ])
+                        captured_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
+                        self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
+                                                                               RecordScreenInfoOperation.SET,
+                                                                               self.video_queue.qsize()),
+                                                     RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
+                                                                               RecordScreenInfoOperation.SET,
+                                                                               "yes")
+                                                     ])
 
-                    # Delay rendering so that Detector can notify VideoMaker a bit earlier, before camera has switched
-                    if captured_frame is not None and time.time() >= captured_frame.timestamp - self.latency:
-                        # Check if there is a message from Detector that active camera change has happen
-                        try:
-                            if self.detection_connection.poll():
-                                self.active_detection = self.detection_connection.recv()
-                                self.active_camera_id = self.active_detection.camera_id
-                        except EOFError:
-                            pass
-                        except socket.error as e:
-                            if e.errno != errno.EPIPE:
-                                # Not a broken pipe
-                                raise
-                        finally:
-                            pass
+                        # Delay rendering so that Detector can notify VideoMaker a bit earlier,
+                        # before camera has switched
+                        if captured_frame is not None:
+                            if time.time() >= captured_frame.timestamp - self.latency:
+                                # Check if there is a message from Detector that active camera change has happen
+                                try:
+                                    if self.detection_connection.poll():
+                                        self.active_detection = self.detection_connection.recv()
+                                        self.active_camera_id = self.active_detection.camera_id
+                                except EOFError:
+                                    pass
+                                except socket.error as e:
+                                    if e.errno != errno.EPIPE:
+                                        # Not a broken pipe
+                                        raise
+                                finally:
+                                    pass
 
-                        if captured_frame is None:
-                            break
-                        else:
-                            if captured_frame.camera.id == self.active_camera_id:
-                                if self.active_detection is not None and self.debugging:
-                                    self.draw_debug_info(captured_frame)
+                                if captured_frame.camera.id == self.active_camera_id:
+                                    if (self.active_detection is not None) and self.debugging:
+                                        self.draw_debug_info(captured_frame)
+                                    #logo_thread = threading.Thread(target=self.draw_logo,
+                                    #                               args=(captured_frame,))
+                                    #logo_thread.start()
 
-                                logo_thread = threading.Thread(target=self.draw_logo,
-                                                               args=(captured_frame,))
-                                logo_thread.start()
+                                    LogoRenderer.draw_logo(captured_frame.frame,
+                                                           self.resized_overlay_image,
+                                                           self.date_format,
+                                                           self.time_format,
+                                                           captured_frame.camera_time)
 
-                                if i % self.fps == 0:
+                                    self.writer.write(captured_frame.frame)
+                                    captured_frame.release()
+                                    if captured_frame.frame_number % self.fps == 0:
+                                        gc.collect()
+
                                     self.screen_connection.send(
                                         [RecordScreenInfoEventItem(RecordScreenInfo.VM_WRITTEN_FRAMES,
                                                                    RecordScreenInfoOperation.SET,
                                                                    i)])
-                else:
-                    # This ensures, that this process exits, if it has processed at least one frame,
-                    # and hasn't got any other during the next 5 seconds.
-                    if warmed_up:
-                        if time.time() - last_job > 5:
-                            break
+                                else:
+                                    captured_frame.release()
+                                    if i % self.fps == 0:
+                                        gc.collect()
+                            else:
+                                captured_frame.release()
+                                if i % self.fps == 0:
+                                    gc.collect()
+                    else:
+                        # This ensures, that this process exits, if it has processed at least one frame,
+                        # and hasn't got any other during the next 5 seconds.
+                        if warmed_up:
+                            if time.time() - last_job > 5:
+                                break
+                except EOFError:
+                    pass
+                except socket.error as e:
+                    if e.errno != errno.EPIPE:
+                        # Not a broken pipe
+                        raise
+
             self.writer.release()
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                            RecordScreenInfoOperation.SET,
                                            "VideoMaker ended.")])
-        except EOFError:
-            pass
-        except socket.error as e:
-            if e.errno != errno.EPIPE:
-                # Not a broken pipe
-                raise
         except Exception as ex:
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.VM_EXCEPTIONS,
@@ -204,12 +208,13 @@ class VideoMaker(object):
                     (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
     def draw_logo(self, captured_frame: CapturedFrame):
-        self.writer.write(captured_frame.frame)
-        return
         with self.write_lock:
             self.writer.write(LogoRenderer.write(captured_frame.frame,
                                                  self.resized_overlay_image,
-                                                 self.logo_font,
                                                  self.date_format,
                                                  self.time_format,
                                                  captured_frame.snapshot_time))
+            captured_frame.release()
+            if captured_frame.frame_number % self.fps == 0:
+                gc.collect()
+

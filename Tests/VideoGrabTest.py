@@ -20,7 +20,7 @@ source_path = "filesrc location={location} latency=2000 " \
                                                  password="Spswd001.")
 
 output_pipeline = "appsrc " \
-                  "! capsfilter caps='video/x-raw,format=(string)I420,framerate=(fraction){fps}/1' " \
+                  "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \
                   "! videoconvert " \
                   "! capsfilter caps='video/x-raw,format=(string)BGRx,interpolation-method=0' " \
                   "! nvvideoconvert " \
@@ -31,6 +31,7 @@ output_pipeline = "appsrc " \
                   "! filesink location=/home/sportsreplay/tmp/video-making/00001-002-2019-09-21-22-49.mp4v".format(width=1280,
                                                                                                                    height=720,
                                                                                                                    fps=25)
+
 
 print("gst-launch-1.0 " + source_path)
 print("gst-launch-1.0 " + output_pipeline)

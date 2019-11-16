@@ -28,7 +28,8 @@ class Detector(object):
                  class_id: int, network_config_path: str, network_weights_path: str,
                  coco_config_path: str, width: int, height: int,
                  cameras: List[Camera], detection_connection: mp.connection.Connection,
-                 polygons: List[DefinedPolygon], screen_connection: mp.connection.Connection, debugging: bool):
+                 polygons: List[DefinedPolygon], screen_connection: mp.connection.Connection,
+                 debugging: bool, number_of_cameras: int):
         self.playground = playground
         self.ai_queue = ai_queue
         self.video_queue = video_queue
@@ -44,6 +45,7 @@ class Detector(object):
         self.debugging = debugging
         self.active_camera = cameras[0]
         self.screen_connection = screen_connection
+        self.number_of_cameras_to_process = number_of_cameras
 
         # Logger
         self.total_detections = 0
@@ -75,13 +77,17 @@ class Detector(object):
                                                                            RecordScreenInfoOperation.SET,
                                                                            self.ai_queue.qsize())])
 
-                    # We are stopping detection if we have reached the end of the queue
+                    # We are stopping detection if we have reached the end of the queue for all cameras
                     if captured_frame is None:
-                        break
-
-                    if captured_frame.camera.id != self.active_camera.id:
+                        self.number_of_cameras_to_process -= 1
+                        if self.number_of_cameras_to_process <= 0:
+                            break
+                    elif (captured_frame is not None) and captured_frame.camera.id == self.active_camera.id:
+                        captured_frame.release()
+                    elif (captured_frame is not None) and captured_frame.camera.id != self.active_camera.id:
                         # Run the AI detection, based on class id
                         detections = net.detect(captured_frame.frame, True)
+                        cv2.waitKey(3)
 
                         # Convert detections into balls
                         balls = []
@@ -157,7 +163,11 @@ class Detector(object):
                     # This ensures, that this process exits, if it has processed at least one frame,
                     # and hasn't got any other during the next 5 seconds.
                     if warmed_up:
-                        if time.time() - last_job > 5:
+                        if time.time() - last_job > 10:
+                            self.screen_connection.send(
+                                [RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
+                                                           RecordScreenInfoOperation.SET,
+                                                           "Detector - Exit due to no activity.")])
                             break
 
             if self.debugging:

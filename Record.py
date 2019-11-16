@@ -52,11 +52,11 @@ class Record(object):
                                  width: int, height: int,
                                  detection_connection: mp.connection.Connection, cameras: List[Camera],
                                  polygons: List[DefinedPolygon], screen_connection: mp.connection.Connection,
-                                 debugging: bool):
+                                 debugging: bool, number_of_cameras: int):
 
         detector = Detector(playground, ai_queue, video_queue, class_id, network_config, network_weights,
                             coco_config, width, height, cameras, detection_connection,
-                            polygons, screen_connection, debugging)
+                            polygons, screen_connection, debugging, number_of_cameras)
 
         detector.start()
 
@@ -144,42 +144,41 @@ class Record(object):
             i += 1
             # If video source is not camera, but the video file, fix the path
             if ".mp4" in v:
-                source_path = "filesrc location={location} " \
+                source_path = "filesrc location={location} latency=2000 " \
                               "! qtdemux " \
                               "! queue " \
-                              "! h264parse " \
-                              "! nvv4l2decoder " \
-                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width}," \
-                              "height=(int){height},format=(string)NV12, framerate=(fraction){fps}/1'" \
-                              "! nvvidconv " \
-                              "! video/x-raw,format=BGRx " \
+                              "! h265parse " \
+                              "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
+                              "! nvvideoconvert " \
+                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
+                              "format=I420,framerate={fps}/1' " \
                               "! videoconvert " \
+                              "! capsfilter caps='video/x-raw,format=BGRx' " \
                               "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
-                              "! queue " \
-                              "! appsink".format(location=os.path.normpath(r"{}".format(v)),
-                                                 fps=fps,
-                                                 width=width,
-                                                 height=height)
+                              "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
+                              "! appsink sync=1".format(location=os.path.normpath(r"{}".format(v)),
+                                                        fps=fps,
+                                                        width=width,
+                                                        height=height)
             else:
                 source_path = "rtspsrc location={location} latency=2000 " \
-                              " user-id={user} user-pw={password} " \
-                              "! rtph264depay " \
-                              "! video/x-h264,width={width},height={height},framerate={fps}/1 " \
-                              "! queue " \
-                              "! h264parse " \
-                              "! omxh264dec " \
-                              "! video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1 " \
-                              "! queue " \
-                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
-                              "! video/x-raw,width={width},height={height},framerate={fps}/1 " \
+                              "user-id={user} user-pw={password} " \
+                              "! rtph265depay " \
+                              "! h265parse " \
+                              "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
+                              "! nvvideoconvert " \
+                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
+                              "format=I420,framerate={fps}/1' " \
                               "! videoconvert " \
-                              "! video/x-raw,format=BGR " \
-                              "! appsink".format(location=v,
-                                                 fps=fps,
-                                                 width=width,
-                                                 height=height,
-                                                 user=rtsp_user,
-                                                 password=rtsp_password)
+                              "! capsfilter caps='video/x-raw,format=BGRx' " \
+                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
+                              "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
+                              "! appsink sync=0".format(location=v,
+                                                        fps=fps,
+                                                        width=width,
+                                                        height=height,
+                                                        user=rtsp_user,
+                                                        password=rtsp_password)
 
             # Define the camera, and add it to the list of cameras
             camera = Camera(i, source_path, fps, cdfps, width, height,
@@ -202,7 +201,8 @@ class Record(object):
         processes.append(mp.Process(target=self.start_activity_detection,
                                     args=(playground, ai_queue, video_queue, class_id, network_config, network_weights,
                                           coco_config, width, height, detection_pipe_out, cameras,
-                                          polygons, detector_screen_pipe_out, debugging)))
+                                          polygons, detector_screen_pipe_out, debugging,
+                                          len(video_addresses))))
 
         # Create a process for video rendering
         processes.append(mp.Process(target=self.start_video_making,

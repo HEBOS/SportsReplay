@@ -2,11 +2,12 @@
 import os
 import time
 import cv2
+import psutil
+import gc
 from typing import List
 from Darknet import DarknetDetector
-
 from Shared.Configuration import Configuration
-from Shared.SharedFunctions import SharedFunctions
+from Shared.CvFunctions import CvFunctions
 
 
 class DetectorTest(object):
@@ -30,7 +31,9 @@ class DetectorTest(object):
 
         started_at = time.time()
         detected_frames = 0
+        memory_start = psutil.virtual_memory().free
         for jpg_file in self.samples[:20]:
+            print("Memory free before: {}".format(psutil.virtual_memory().free))
             img = cv2.imread(jpg_file)
             detections = net.detect(img, True)
             if detections is not None:
@@ -43,7 +46,12 @@ class DetectorTest(object):
 
                     if detected_frame:
                         detected_frames += 1
+            gc.collect()
+            print("Memory free after: {}".format(psutil.virtual_memory().free))
 
+        CvFunctions.release_open_cv()
+        gc.collect()
+        print("Memory lost: {}".format(memory_start - psutil.virtual_memory().free))
         print("GPU utilisation equals {} fps.".format(float(20 / (time.time() - started_at))))
         print("Detected objects: {}".format(balls_identified))
         print("Frames with the ball: {}/{}".format(detected_frames, 20))

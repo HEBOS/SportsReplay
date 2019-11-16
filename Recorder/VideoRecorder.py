@@ -95,7 +95,11 @@ class VideoRecorder(object):
                         captured_frame = CapturedFrame(self.camera,
                                                        frame_number,
                                                        snapshot_time,
-                                                       np.copy(frame))
+                                                       np.copy(frame),
+                                                       SharedFunctions.get_recording_time(
+                                                           self.camera.start_of_capture,
+                                                           capture.get(cv2.CAP_PROP_POS_MSEC)))
+
                         self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
                         self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.AI_QUEUE_COUNT,
                                                                                RecordScreenInfoOperation.SET,
@@ -105,11 +109,12 @@ class VideoRecorder(object):
                     self.video_queue.enqueue(CapturedFrame(self.camera,
                                                            frame_number,
                                                            snapshot_time,
-                                                           frame), "Video Queue")
-                    self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
-                                                                           RecordScreenInfoOperation.SET,
-                                                                           self.video_queue.qsize()),
-                                                 RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
+                                                           frame,
+                                                           SharedFunctions.get_recording_time(
+                                                               self.camera.start_of_capture,
+                                                               capture.get(cv2.CAP_PROP_POS_MSEC))),
+                                             "Video Queue")
+                    self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
                                                                            RecordScreenInfoOperation.SET,
                                                                            self.camera.id)])
 
@@ -146,24 +151,23 @@ class VideoRecorder(object):
                                          RecordScreenInfoEventItem(RecordScreenInfo.ERROR_LOG,
                                                                    RecordScreenInfoOperation.SET,
                                                                    SharedFunctions.get_exception_info(ex))])
-        finally:
-            try:
-                self.screen_connection.close()
-                self.screen_connection = None
-                if capture is not None:
-                    capture.release()
-                CvFunctions.release_open_cv()
-                self.ai_queue.mark_as_done()
-                self.video_queue.mark_as_done()
-                self.ai_queue = None
-                self.video_queue = None
-                print("TOTAL FRAMES GRABBED: {}".format(total_frames))
-            except EOFError:
-                pass
-            except socket.error as e:
-                pass
-            except Exception as ex:
-                print(ex)
+        try:
+            self.screen_connection.close()
+            self.screen_connection = None
+            if capture is not None:
+                capture.release()
+            CvFunctions.release_open_cv()
+            self.ai_queue.mark_as_done()
+            self.video_queue.mark_as_done()
+            self.ai_queue = None
+            self.video_queue = None
+            print("TOTAL FRAMES GRABBED: {}".format(total_frames))
+        except EOFError:
+            pass
+        except socket.error as e:
+            pass
+        except Exception as ex:
+            print(ex)
 
     def cv2error(self):
         self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,
