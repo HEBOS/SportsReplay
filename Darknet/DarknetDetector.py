@@ -3,6 +3,7 @@ import numpy
 from Darknet.DarknetBindings import *
 from Shared.YoloDetection import YoloDetection
 from typing import List
+import cv2
 
 
 class DarknetDetector(object):
@@ -11,18 +12,15 @@ class DarknetDetector(object):
                              c_char_p(weights_path.encode("utf-8")),
                              0)
         self._meta = load_meta(c_char_p(classnames_path.encode("utf-8")))
-        self.darknet_image = make_image(lib.network_width(self._net), lib.network_height(self._net), 3)
-
-        #TREBA POPRAVITI POLIGONE - MORAJU UVIJEK BITI U SCALE-U SA ORIGINALNOM SLIKOM
-        #self.scale = original_image_size[0] / lib.network_width(self._net)
-        self.scaleX = 480 / lib.network_width(self._net)
-        self.scaleY = 270 / lib.network_width(self._net)
+        self.network_width = lib.network_width(self._net)
+        self.network_height = lib.network_height(self._net)
+        self.scaleX = 480 / self.network_width
+        self.scaleY = 270 / self.network_height
+        self.darknet_image = make_image(self.network_width, self.network_height, 3)
 
     def detect(self, img: numpy.array, display_results: bool) -> List[YoloDetection]:
         frame_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        frame_resized = cv2.resize(frame_rgb, (lib.network_width(self._net),
-                                               lib.network_height(self._net)),
-                                   interpolation=cv2.INTER_LINEAR)
+        frame_resized = cv2.resize(frame_rgb, (self.network_width, self.network_height), interpolation=cv2.INTER_LINEAR)
         copy_image_from_bytes(self.darknet_image, frame_resized.tobytes())
         result = detect(self._net, self._meta, self.darknet_image)
 

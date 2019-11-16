@@ -21,6 +21,11 @@ class SharedFunctions(object):
                               timestamp=time.strftime("%Y-%m-%d-%H-%M", time.gmtime(planned_start_time))))
 
     @staticmethod
+    def get_recording_time(start_of_capture: float, camera_timestamp: int) -> time:
+        camera_time: float = camera_timestamp / 1000
+        return time.localtime(start_of_capture + camera_time)
+
+    @staticmethod
     def get_output_video(root_path: str, playground: int, planned_start_time: float):
         return os.path\
             .normpath(r"{path}/{playground}-{timestamp}.{extension}"

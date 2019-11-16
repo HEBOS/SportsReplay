@@ -1,35 +1,45 @@
 import cv2
 import time
 
-#input_pipeline = "rtsp://192.168.0.103:8080/h264_pcm.sdp"
-input_pipeline = "rtspsrc location=rtsp://192.168.0.103:8080/h264_pcm.sdp latency=2000 " \
-                 "! rtph264depay " \
-                 "! video/x-h264,width=1280,height=720,framerate=25/1 " \
-                 "! queue " \
-                 "! h264parse " \
-                 "! omxh264dec " \
-                 "! video/x-raw,format=NV12,width={width},height={height},framerate={fps}/1 " \
-                 "! videorate skip-to-first=1 qos=0 average-period=0000000000 " \
-                 "! video/x-raw,width=1280,height=720,framerate=25/1 " \
-                 "! videoconvert " \
-                 "! video/x-raw,format=BGR " \
-                 "! appsink"
+source_path = "filesrc location={location} latency=2000 " \
+                              "! qtdemux " \
+                              "! queue " \
+                              "! h264parse " \
+                              "! nvv4l2decoder " \
+                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height=(int){height},format=(string)NV12, framerate=(fraction){fps}/1'" \
+                              "! nvvidconv " \
+                              "! video/x-raw,format=BGRx " \
+                              "! videoconvert " \
+                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
+                              "! queue " \
+                              "! appsink".format(location="/home/sportsreplay/GitHub/sports-replay-hrvoje/videos/test-video-1.mp4",
+                                                 fps=16,
+                                                 width=1280,
+                                                 height=720,
+                                                 user="sportsreplay",
+                                                 password="Spswd001.")
 
 output_pipeline = "appsrc " \
+                  "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \
                   "! videoconvert " \
-                  "! video/x-raw,width=1280,height=720,format=I420,framerate=25/1 " \
-                  "! omxh264enc " \
+                  "! capsfilter caps='video/x-raw,format=(string)BGRx,interpolation-method=0' " \
+                  "! nvvideoconvert " \
+                  "! capsfilter caps='video/x-raw(memory:NVMM)' " \
+                  "! nvv4l2h264enc " \
                   "! h264parse " \
                   "! qtmux " \
-                  "! filesink location=/home/sportsreplay/tmp/video-making/00001-002-2019-09-21-22-49.mp4v"
+                  "! filesink location=/home/sportsreplay/tmp/video-making/00001-002-2019-09-21-22-49.mp4v".format(width=1280,
+                                                                                                                   height=720,
+                                                                                                                   fps=25)
 
-print("gst-launch-1.0 " + input_pipeline)
-capture = cv2.VideoCapture(input_pipeline, cv2.CAP_GSTREAMER)
-writer = cv2.VideoWriter(output_pipeline,
-                                 cv2.VideoWriter_fourcc(*'mp4v'),
-                                 25,
-                                 (1280, 720),
-                                 True)
+
+print("gst-launch-1.0 " + source_path)
+print("gst-launch-1.0 " + output_pipeline)
+
+print("Starting video capture...")
+capture = cv2.VideoCapture(source_path, cv2.CAP_GSTREAMER)
+print("Starting video writer...")
+writer = None
 
 print("isopen={}".format(capture.isOpened()))
 i = 0
@@ -41,7 +51,15 @@ while time.time() - start_time < 10:
     if grabbed:
         i += 1
         ref, frame = capture.retrieve()
+        if writer is None:
+            writer = cv2.VideoWriter(output_pipeline,
+                            cv2.VideoWriter_fourcc(*'mp4v'),
+                            25,
+                            (1280, 720),
+                            True)
         writer.write(frame)
+        if i % 10 == 0:
+            cv2.imwrite("out.png", frame)
 
 print("Uhvaćeno {} frame-ova".format(i))
 

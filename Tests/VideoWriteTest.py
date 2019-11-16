@@ -24,33 +24,57 @@ class VideoWriteTest(object):
         video_making_path = os.path.join(dump_path, config.video_maker["video-making-path"])
         SharedFunctions.ensure_directory_exists(video_making_path)
 
+        # mp4
         input_pipeline = "filesrc location={location} " \
                          "! qtdemux " \
                          "! queue " \
-                         "! h264parse " \
-                         "! omxh264dec " \
-                         "! video/x-raw,format=NV12 " \
+                         "! h265parse " \
+                         "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
+                         "! nvvideoconvert " \
+                         "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
+                         "format=I420,framerate={fps}/1' " \
                          "! videoconvert " \
-                         "! video/x-raw,format=BGR " \
+                         "! capsfilter caps='video/x-raw,format=BGRx' " \
+                         "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
+                         "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
                          "! appsink sync=0".format(location=os.path.normpath(r"{}".format(video_addresses[0])),
-                                            fps=fps,
-                                            width=width,
-                                            height=height)
-
-        #input_pipeline = input_pipeline.replace("(", "\\(").replace(")", "\\)")
+                                                   fps=fps,
+                                                   width=width,
+                                                   height=height)
+        # rtsp
+        input_pipeline = "rtspsrc location={location} latency=2000 " \
+                         " user-id={user} user-pw={password} " \
+                         "! rtph265depay " \
+                         "! h265parse " \
+                         "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
+                         "! nvvideoconvert " \
+                         "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
+                         "format=I420,framerate={fps}/1' " \
+                         "! videoconvert " \
+                         "! capsfilter caps='video/x-raw,format=BGRx' " \
+                         "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
+                         "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
+                         "! appsink sync=0".format(location=video_addresses[0],
+                                                   fps=fps,
+                                                   width=width,
+                                                   height=height,
+                                                   user="sportsreplay",
+                                                   password="Spswd001.")
 
         output_pipeline = "appsrc " \
+                          "! capsfilter caps='video/x-raw,format=(string)I420,framerate=(fraction){fps}/1' " \
                           "! videoconvert " \
-                          "! video/x-raw,width=1280,height=720,framerate=25/1,format=I420 " \
-                          "! omxh264enc " \
-                          "! h264parse " \
+                          "! capsfilter caps='video/x-raw,format=(string)BGRx,(GstInterpolationMethod)interpolation-method=1' " \
+                          "! nvvideoconvert " \
+                          "! capsfilter caps='video/x-raw(memory:NVMM)' " \
+                          "! nvv4l2h265enc maxperf-enable=true " \
+                          "! h265parse " \
                           "! qtmux " \
-                          "! filesink location={video} ".format(video="output.mp4v",
-                                                                fps=fps,
-                                                                width=width,
-                                                                height=height)
+                          "! filesink location={video}".format(video="output.mp4v",
+                                                               fps=fps,
+                                                               width=width,
+                                                               height=height)
 
-        output_pipeline = output_pipeline.replace("(", "\\(").replace(")", "\\)")
         print("VideoCapture:")
         print("-----------------------------------------------------------------------------------------------")
         print(input_pipeline)
@@ -69,27 +93,30 @@ class VideoWriteTest(object):
                 except:
                     break
 
+        print("Read utilisation equals {} fps.".format((fps * 10) / (time.time() - started_at)))
         print("")
         print("")
         print("VideoWriter:")
         print(output_pipeline)
         print("-----------------------------------------------------------------------------------------------")
-        # cv2.VideoWriter_fourcc(*'H264'),
+        # cv2.VideoWriter_fourcc(*'H265'),
 
         writer = cv2.VideoWriter(output_pipeline, cv2.VideoWriter_fourcc(*'mp4v'),
                                  fps, (width, height), True)
 
         started_at = time.time()
         i = 0
-        while i < 100:
+        while i <= fps * 10:
             i += 1
-            im = q.get()
-            print("writing...")
-            writer.write(im)
-            if i >= 100:
+            if q.qsize() == 0:
                 break
+            im = q.get()
+            print("Writing {}".format(i))
+            writer.write(im)
+            if i % 10 == 0:
+                cv2.imwrite("out.jpg", im)
 
-        print("Write utilisation equals {} fps.".format((time.time() - started_at) / 100))
+        print("Write utilisation equals {} fps.".format((fps * 10) / (time.time() - started_at)))
 
         capture.release()
         writer.release()
