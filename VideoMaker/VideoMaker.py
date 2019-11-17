@@ -6,7 +6,6 @@ import multiprocessing as mp
 from typing import List
 import os
 import gc
-import threading
 import socket
 import errno
 from Shared.CapturedFrame import CapturedFrame
@@ -23,14 +22,14 @@ from Shared.LogoRenderer import LogoRenderer
 
 class VideoMaker(object):
     def __init__(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                 latency: float, detection_connection: mp.connection.Connection,
+                 video_latency: float, detection_connection: mp.connection.Connection,
                  polygons: List[DefinedPolygon], width: int, height: int, fps: int,
                  screen_connection: mp.connection.Connection, debugging: bool):
         self.config = Configuration()
         self.playground = playground
         self.video_queue = video_queue
         self.output_video = output_video
-        self.latency = latency
+        self.video_latency = video_latency
         self.detection_connection = detection_connection
         self.polygons = polygons
         self.width = width
@@ -49,7 +48,6 @@ class VideoMaker(object):
             os.path.join(os.getcwd(), self.config.video_maker["logo-path"]), self.width)
 
         self.writer = None
-        self.write_lock = threading.Lock()
 
     def start(self):
         output_pipeline = "appsrc " \
@@ -97,7 +95,7 @@ class VideoMaker(object):
                         # Delay rendering so that Detector can notify VideoMaker a bit earlier,
                         # before camera has switched
                         if captured_frame is not None:
-                            if time.time() >= captured_frame.timestamp - self.latency:
+                            if time.time() >= captured_frame.timestamp - self.video_latency:
                                 # Check if there is a message from Detector that active camera change has happen
                                 try:
                                     if self.detection_connection.poll():
@@ -115,10 +113,6 @@ class VideoMaker(object):
                                 if captured_frame.camera.id == self.active_camera_id:
                                     if (self.active_detection is not None) and self.debugging:
                                         self.draw_debug_info(captured_frame)
-                                    #logo_thread = threading.Thread(target=self.draw_logo,
-                                    #                               args=(captured_frame,))
-                                    #logo_thread.start()
-
                                     LogoRenderer.draw_logo(captured_frame.frame,
                                                            self.resized_overlay_image,
                                                            self.date_format,
@@ -190,7 +184,7 @@ class VideoMaker(object):
         # Draw protected area first
         for polygon_definition in self.polygons:
             if polygon_definition.camera_id == captured_frame.camera.id:
-                points = SharedFunctions.get_points_array(polygon_definition.points, 1280 / 480)
+                points = SharedFunctions.get_points_array(polygon_definition.points, self.width / 480)
                 pts = np.array(points, np.int32)
                 pts = pts.reshape((-1, 1, 2))
                 border_color = (255, 0, 0) if not polygon_definition.detect else (0, 0, 0)
@@ -198,7 +192,7 @@ class VideoMaker(object):
 
         # Draw last detection
         if self.active_detection.camera_id == self.active_camera_id:
-            points = SharedFunctions.get_points_array(self.active_detection.points, 1280 / 480)
+            points = SharedFunctions.get_points_array(self.active_detection.points, self.width / 480)
             pts = np.array(points, np.int32)
             pts = pts.reshape((-1, 1, 2))
             cv2.polylines(captured_frame.frame, [pts], True, (52, 158, 190))
@@ -206,15 +200,4 @@ class VideoMaker(object):
         frame_info = int(captured_frame.snapshot_time) + captured_frame.frame_number / 10000
         cv2.putText(captured_frame.frame, str(frame_info),
                     (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
-
-    def draw_logo(self, captured_frame: CapturedFrame):
-        with self.write_lock:
-            self.writer.write(LogoRenderer.write(captured_frame.frame,
-                                                 self.resized_overlay_image,
-                                                 self.date_format,
-                                                 self.time_format,
-                                                 captured_frame.snapshot_time))
-            captured_frame.release()
-            if captured_frame.frame_number % self.fps == 0:
-                gc.collect()
 

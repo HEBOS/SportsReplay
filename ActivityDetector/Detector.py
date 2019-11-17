@@ -230,14 +230,14 @@ class Detector(object):
         # Draw protected area first
         for polygon_definition in self.polygons:
             if polygon_definition.camera_id == captured_frame.camera.id:
-                points = SharedFunctions.get_points_array(polygon_definition.points, 1280 / 480)
+                points = SharedFunctions.get_points_array(polygon_definition.points, self.width / 480)
                 pts = np.array(points, np.int32)
                 pts = pts.reshape((-1, 1, 2))
                 border_color = (255, 0, 0) if not polygon_definition.detect else (0, 0, 0)
                 cv2.polylines(captured_frame.frame, [pts], True, border_color)
 
         # Draw last detection
-        points = SharedFunctions.get_points_array(ball.points, 1280 / 480)
+        points = SharedFunctions.get_points_array(ball.points, self.width / 480)
         pts = np.array(points, np.int32)
         pts = pts.reshape((-1, 1, 2))
         cv2.polylines(captured_frame.frame, [pts], True, (52, 158, 190))

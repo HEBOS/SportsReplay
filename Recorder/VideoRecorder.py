@@ -43,16 +43,16 @@ class VideoRecorder(object):
         try:
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_START_SCHEDULED,
                                                                    RecordScreenInfoOperation.SET,
-                                                                   time.strftime("%Y-%m-%d-%H-%M",
+                                                                   time.strftime("%Y-%m-%d-%H-%M-%S",
                                                                                  time.gmtime(
                                                                                      self.camera.start_of_capture))),
                                          RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_STARTED,
                                                                    RecordScreenInfoOperation.SET,
-                                                                   time.strftime("%Y-%m-%d-%H-%M",
+                                                                   time.strftime("%Y-%m-%d-%H-%M-%S",
                                                                                  time.gmtime(time.time()))),
                                          RecordScreenInfoEventItem(RecordScreenInfo.VR_RECORDING_END_SCHEDULED,
                                                                    RecordScreenInfoOperation.SET,
-                                                                   time.strftime("%Y-%m-%d-%H-%M",
+                                                                   time.strftime("%Y-%m-%d-%H-%M-%S",
                                                                                  time.gmtime(
                                                                                      self.camera.end_of_capture)))
                                          ])
