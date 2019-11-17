@@ -71,9 +71,11 @@ class Record(object):
 
     def start(self, debugging: bool):
         # Schedule the start and end of capture 3 seconds ahead, so that all camera start at the same time
+        latency = int(self.config.recorder["latency"])
+        delay_recording_start = int(self.config.recorder["delay-recording-start"])
         playtime = int(self.config.common["playtime"])
-        start_of_capture = time.time() + 15
-        end_of_capture = start_of_capture + 15 + playtime
+        start_of_capture = time.time() + delay_recording_start - (latency/1000)
+        end_of_capture = start_of_capture + playtime
         video_latency = float(self.config.video_maker["save-delay"])
         video_addresses = str(self.config.recorder["video"]).split(",")
 
@@ -144,7 +146,7 @@ class Record(object):
             i += 1
             # If video source is not camera, but the video file, fix the path
             if ".mp4" in v:
-                source_path = "filesrc location={location} latency=2000 " \
+                source_path = "filesrc location={location} latency={latency} " \
                               "! qtdemux " \
                               "! queue " \
                               "! h265parse " \
@@ -159,9 +161,10 @@ class Record(object):
                               "! appsink sync=1".format(location=os.path.normpath(r"{}".format(v)),
                                                         fps=fps,
                                                         width=width,
-                                                        height=height)
+                                                        height=height,
+                                                        latency=latency)
             else:
-                source_path = "rtspsrc location={location} latency=2000 " \
+                source_path = "rtspsrc location={location} latency={latency} " \
                               "user-id={user} user-pw={password} " \
                               "! rtph265depay " \
                               "! h265parse " \
@@ -177,6 +180,7 @@ class Record(object):
                                                         fps=fps,
                                                         width=width,
                                                         height=height,
+                                                        latency=latency,
                                                         user=rtsp_user,
                                                         password=rtsp_password)
 
