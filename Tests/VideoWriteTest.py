@@ -24,51 +24,36 @@ class VideoWriteTest(object):
         video_making_path = os.path.join(dump_path, config.video_maker["video-making-path"])
         SharedFunctions.ensure_directory_exists(video_making_path)
 
-        # mp4
-        input_pipeline = "filesrc location={location} " \
-                         "! qtdemux " \
+        input_pipeline = "rtspsrc location={location} latency={latency} " \
+                         "user-id={user} user-pw={password} " \
                          "! queue " \
-                         "! h265parse " \
-                         "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
-                         "! nvvideoconvert " \
-                         "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
-                         "format=I420,framerate={fps}/1' " \
+                         "! rtph264depay " \
+                         "! h264parse " \
+                         "! omxh264dec " \
+                         "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
+                         "! video/x-raw,framerate={fps}/1 " \
+                         "! nvvidconv " \
+                         "! video/x-raw(memory:NVMM),format=BGRx " \
+                         "! queue " \
+                         "! nvvidconv " \
+                         "! video/x-raw,format=BGRx" \
                          "! videoconvert " \
-                         "! capsfilter caps='video/x-raw,format=BGRx' " \
-                         "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
-                         "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
-                         "! appsink sync=0".format(location=os.path.normpath(r"{}".format(video_addresses[0])),
-                                                   fps=fps,
-                                                   width=width,
-                                                   height=height)
-        # rtsp
-        input_pipeline = "rtspsrc location={location} latency=2000 " \
-                         " user-id={user} user-pw={password} " \
-                         "! rtph265depay " \
-                         "! h265parse " \
-                         "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
-                         "! nvvideoconvert " \
-                         "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
-                         "format=I420,framerate={fps}/1' " \
-                         "! videoconvert " \
-                         "! capsfilter caps='video/x-raw,format=BGRx' " \
-                         "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
-                         "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
+                         "! video/x-raw,format=BGR " \
                          "! appsink sync=0".format(location=video_addresses[0],
                                                    fps=fps,
                                                    width=width,
                                                    height=height,
                                                    user="sportsreplay",
-                                                   password="Spswd001.")
-
+                                                   password="Spswd001.",
+                                                   latency=2000)
         output_pipeline = "appsrc " \
-                          "! capsfilter caps='video/x-raw,format=(string)I420,framerate=(fraction){fps}/1' " \
+                          "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \
                           "! videoconvert " \
-                          "! capsfilter caps='video/x-raw,format=(string)BGRx,(GstInterpolationMethod)interpolation-method=1' " \
+                          "! capsfilter caps='video/x-raw,format=BGRx,interpolation-method=1' " \
                           "! nvvideoconvert " \
                           "! capsfilter caps='video/x-raw(memory:NVMM)' " \
-                          "! nvv4l2h265enc maxperf-enable=true " \
-                          "! h265parse " \
+                          "! nvv4l2h264enc maxperf-enable=true " \
+                          "! h264parse " \
                           "! qtmux " \
                           "! filesink location={video}".format(video="output.mp4v",
                                                                fps=fps,
@@ -80,20 +65,29 @@ class VideoWriteTest(object):
         print(input_pipeline)
         capture = cv2.VideoCapture(input_pipeline, cv2.CAP_GSTREAMER)
 
-        q = queue.Queue(maxsize=1000)
+        print("Capture opened={}".format(capture.isOpened()))
+        print('Codec FOURCC: {}'.format(hex(int(capture.get(6)))))
+        print('Codec pixel FOURCC: {}'.format(hex(int(capture.get(46)))))
+
+        success, image = capture.read()
+        print("Image shape: ", image.shape)
+
+        q = queue.Queue(maxsize=10000)
         started_at = time.time()
         j = 0
-        while time.time() - started_at < 10:
-            j += 1
+        while time.time() - started_at <= 2:
             grabbed, img = capture.read()
             if grabbed:
+                j += 1
+                #if j % 10 == 0:
+                #    cv2.imwrite("out.jpg", img)
                 try:
                     print("Grabbed {}".format(j))
                     q.put(img)
                 except:
                     break
 
-        print("Read utilisation equals {} fps.".format((fps * 10) / (time.time() - started_at)))
+        print("Read utilisation equals {} fps.".format(j / (time.time() - started_at)))
         print("")
         print("")
         print("VideoWriter:")
@@ -113,8 +107,6 @@ class VideoWriteTest(object):
             im = q.get()
             print("Writing {}".format(i))
             writer.write(im)
-            if i % 10 == 0:
-                cv2.imwrite("out.jpg", im)
 
         print("Write utilisation equals {} fps.".format((fps * 10) / (time.time() - started_at)))
 

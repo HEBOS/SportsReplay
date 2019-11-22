@@ -58,6 +58,9 @@ lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
 lib.network_height.restype = c_int
 
+copy_image_from_bytes = lib.copy_image_from_bytes
+copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
+
 predict = lib.network_predict_ptr
 predict.argtypes = [c_void_p, POINTER(c_float)]
 predict.restype = POINTER(c_float)
@@ -68,9 +71,6 @@ set_gpu.argtypes = [c_int]
 make_image = lib.make_image
 make_image.argtypes = [c_int, c_int, c_int]
 make_image.restype = IMAGE
-
-copy_image_from_bytes = lib.copy_image_from_bytes
-copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
 
 get_network_boxes = lib.get_network_boxes
 get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int), c_int]
@@ -121,9 +121,6 @@ load_image = lib.load_image_color
 load_image.argtypes = [c_char_p, c_int, c_int]
 load_image.restype = IMAGE
 
-copy_image_from_bytes = lib.copy_image_from_bytes
-copy_image_from_bytes.argtypes = [IMAGE, c_char_p]
-
 rgbgr_image = lib.rgbgr_image
 rgbgr_image.argtypes = [IMAGE]
 
@@ -145,7 +142,7 @@ def classify(net, meta, im):
     return res
 
 
-def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45, debug=False) -> List[YoloDetection]:
+def detect_image(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45, debug=False) -> List[YoloDetection]:
     num = c_int(0)
     pnum = pointer(num)
     letter_box = 0

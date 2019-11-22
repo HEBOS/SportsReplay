@@ -74,8 +74,8 @@ class Record(object):
         latency = int(self.config.recorder["latency"])
         delay_recording_start = int(self.config.recorder["delay-recording-start"])
         playtime = int(self.config.common["playtime"])
-        start_of_capture = time.time() + delay_recording_start - (latency/1000)
-        end_of_capture = start_of_capture + playtime
+        start_of_capture = time.time() + delay_recording_start
+        end_of_capture = start_of_capture + playtime + (latency / 1000)
         video_latency = float(self.config.video_maker["save-delay"])
         video_addresses = str(self.config.recorder["video"]).split(",")
 
@@ -149,16 +149,18 @@ class Record(object):
                 source_path = "filesrc location={location} latency={latency} " \
                               "! qtdemux " \
                               "! queue " \
-                              "! h265parse " \
+                              "! h264parse " \
                               "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
-                              "! nvvideoconvert " \
-                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
-                              "format=I420,framerate={fps}/1' " \
+                              "! nvvidconv " \
+                              "! video/x-raw(memory:NVMM),format=BGRx " \
+                              "! queue " \
+                              "! nvvidconv " \
+                              "! video/x-raw,format=BGRx" \
                               "! videoconvert " \
-                              "! capsfilter caps='video/x-raw,format=BGRx' " \
+                              "! video/x-raw,format=BGR " \
                               "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
                               "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
-                              "! appsink sync=1".format(location=os.path.normpath(r"{}".format(v)),
+                              "! appsink sync=0".format(location=os.path.normpath(r"{}".format(v)),
                                                         fps=fps,
                                                         width=width,
                                                         height=height,
@@ -166,16 +168,19 @@ class Record(object):
             else:
                 source_path = "rtspsrc location={location} latency={latency} " \
                               "user-id={user} user-pw={password} " \
-                              "! rtph265depay " \
-                              "! h265parse " \
-                              "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
-                              "! nvvideoconvert " \
-                              "! capsfilter caps='video/x-raw(memory:NVMM),width={width},height={height}," \
-                              "format=I420,framerate={fps}/1' " \
+                              "! queue " \
+                              "! rtph264depay " \
+                              "! h264parse " \
+                              "! omxh264dec " \
+                              "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
+                              "! video/x-raw,framerate={fps}/1 " \
+                              "! nvvidconv " \
+                              "! video/x-raw(memory:NVMM),format=BGRx " \
+                              "! queue " \
+                              "! nvvidconv " \
+                              "! video/x-raw,format=BGRx" \
                               "! videoconvert " \
-                              "! capsfilter caps='video/x-raw,format=BGRx' " \
-                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
-                              "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
+                              "! video/x-raw,format=BGR " \
                               "! appsink sync=0".format(location=v,
                                                         fps=fps,
                                                         width=width,

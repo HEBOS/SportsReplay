@@ -51,13 +51,13 @@ class VideoMaker(object):
 
     def start(self):
         output_pipeline = "appsrc " \
-                          "! capsfilter caps='video/x-raw,format=(string)I420,framerate=(fraction){fps}/1' " \
+                          "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \
                           "! videoconvert " \
-                          "! capsfilter caps='video/x-raw,format=(string)BGRx,interpolation-method=1' " \
+                          "! capsfilter caps='video/x-raw,format=BGRx,interpolation-method=1' " \
                           "! nvvideoconvert " \
                           "! capsfilter caps='video/x-raw(memory:NVMM)' " \
-                          "! nvv4l2h265enc maxperf-enable=true " \
-                          "! h265parse " \
+                          "! nvv4l2h264enc maxperf-enable=true " \
+                          "! h264parse " \
                           "! qtmux " \
                           "! filesink location={video}".format(width=self.width,
                                                                height=self.height,
@@ -74,6 +74,7 @@ class VideoMaker(object):
                                       True)
         try:
             i = 0
+            written_frames = 0
             warmed_up = False
             last_job = time.time()
             while True:
@@ -120,6 +121,7 @@ class VideoMaker(object):
                                                            captured_frame.camera_time)
 
                                     self.writer.write(captured_frame.frame)
+                                    written_frames += 1
                                     captured_frame.release()
                                     if captured_frame.frame_number % self.fps == 0:
                                         gc.collect()
@@ -127,7 +129,7 @@ class VideoMaker(object):
                                     self.screen_connection.send(
                                         [RecordScreenInfoEventItem(RecordScreenInfo.VM_WRITTEN_FRAMES,
                                                                    RecordScreenInfoOperation.SET,
-                                                                   i)])
+                                                                   written_frames)])
                                 else:
                                     captured_frame.release()
                                     if i % self.fps == 0:

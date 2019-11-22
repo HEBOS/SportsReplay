@@ -77,7 +77,7 @@ class VideoRecorder(object):
                 if grabbed:
                     total_frames += 1
                     frame_number += 1
-                    if frame_number > self.camera.fps + 1 or int(time.time()) > int(snapshot_time):
+                    if (frame_number > self.camera.fps + 1) or (int(time.time()) > int(snapshot_time)):
                         frame_number = 1
 
                     snapshot_time = time.time()
