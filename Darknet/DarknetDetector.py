@@ -16,13 +16,14 @@ class DarknetDetector(object):
         self.network_height = lib.network_height(self._net)
         self.scaleX = 480 / self.network_width
         self.scaleY = 270 / self.network_height
-        self.darknet_image = make_image(self.network_width, self.network_height, 3)
 
     def detect(self, img: numpy.array, display_results: bool) -> List[YoloDetection]:
         frame_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         frame_resized = cv2.resize(frame_rgb, (self.network_width, self.network_height), interpolation=cv2.INTER_LINEAR)
-        copy_image_from_bytes(self.darknet_image, frame_resized.tobytes())
-        result = detect(self._net, self._meta, self.darknet_image)
+        darknet_image = make_image(self.network_width, self.network_height, 3)
+        copy_image_from_bytes(darknet_image, frame_resized.tobytes())
+        result = detect_image(self._net, self._meta, darknet_image)
+        free_image(darknet_image)
 
         # Rescale the results
         for detection in result:

@@ -10,7 +10,7 @@ Follow the instructions defined in the [following article](https://developer.nvi
 # Installing Python Requirements
 `sudo apt-get install python3-pip`
 
-`sudo pip install -r requirements.txt`
+`sudo pip3 install -r requirements.txt`
 
 ## Cloning This Repository
 The cloning of this repository needs to be done into $HOME/GitHub/sports-replay folder, as described [here](../README.md).
@@ -42,7 +42,7 @@ Read instructions [here](COMMON.md).
     From this point, you can disconnect the monitor, and access your device using SSH.
 
 ## Add The Rasperry PI Address to Hosts File
-`sudo /etc/hosts`
+`sudo vi /etc/hosts`
 
 ## Install FTP Client
 `sudo apt install ftp`
