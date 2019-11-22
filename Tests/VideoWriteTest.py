@@ -39,13 +39,14 @@ class VideoWriteTest(object):
                          "! video/x-raw,format=BGRx" \
                          "! videoconvert " \
                          "! video/x-raw,format=BGR " \
-                         "! appsink sync=0".format(location=video_addresses[0],
+                         "! appsink sync=true".format(location=video_addresses[0],
                                                    fps=fps,
                                                    width=width,
                                                    height=height,
                                                    user="sportsreplay",
                                                    password="Spswd001.",
                                                    latency=2000)
+
         output_pipeline = "appsrc " \
                           "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \
                           "! videoconvert " \

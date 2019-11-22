@@ -123,29 +123,24 @@ class VideoMaker(object):
                                 finally:
                                     pass
 
-                                if captured_frame.camera.id == self.active_camera_id:
-                                    if (self.active_detection is not None) and self.debugging:
-                                        self.draw_debug_info(captured_frame)
-                                    #LogoRenderer.draw_logo(captured_frame.frame,
-                                    #                       self.resized_overlay_image,
-                                    #                       self.date_format,
-                                    #                       self.time_format,
-                                    #                       captured_frame.camera_time)
+                                if self.debugging:
+                                    self.draw_debug_info(captured_frame)
+                                LogoRenderer.draw_logo(captured_frame.frame,
+                                                       self.resized_overlay_image,
+                                                       self.date_format,
+                                                       self.time_format,
+                                                       captured_frame.camera_time)
 
-                                    self.writer.write(captured_frame.frame)
-                                    written_frames += 1
-                                    captured_frame.release()
-                                    if captured_frame.frame_number % self.fps == 0:
-                                        gc.collect()
+                                self.writer.write(captured_frame.frame)
+                                written_frames += 1
+                                captured_frame.release()
+                                if captured_frame.frame_number % self.fps == 0:
+                                    gc.collect()
 
-                                    self.screen_connection.send(
-                                        [RecordScreenInfoEventItem(RecordScreenInfo.VM_WRITTEN_FRAMES,
-                                                                   RecordScreenInfoOperation.SET,
-                                                                   written_frames)])
-                                else:
-                                    captured_frame.release()
-                                    if i % self.fps == 0:
-                                        gc.collect()
+                                self.screen_connection.send(
+                                    [RecordScreenInfoEventItem(RecordScreenInfo.VM_WRITTEN_FRAMES,
+                                                               RecordScreenInfoOperation.SET,
+                                                               written_frames)])
                             else:
                                 captured_frame.release()
                                 if i % self.fps == 0:
@@ -214,11 +209,8 @@ class VideoMaker(object):
                         last_job = time.time()
                         warmed_up = True
                         if captured_frame is not None:
-                            if captured_frame.camera.id == self.active_camera_id:
-                                with self.frame_queue_lock:
-                                    self.frame_queue.put_nowait(captured_frame)
-                            else:
-                                captured_frame.release()
+                            with self.frame_queue_lock:
+                                self.frame_queue.put_nowait(captured_frame)
                     else:
                         # This ensures, that this process exits, if it has processed at least one frame,
                         # and hasn't got any other during the next 5 seconds.

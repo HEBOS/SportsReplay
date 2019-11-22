@@ -7,6 +7,7 @@ import threading
 import os
 import socket
 import errno
+import copy
 from typing import List
 from Shared.CapturedFrame import CapturedFrame
 from Shared.Camera import Camera
@@ -24,7 +25,7 @@ class Detector(object):
     def __init__(self, playground: int, ai_frame_connections: List[connection.Connection],
                  class_id: int, network_config_path: str, network_weights_path: str,
                  coco_config_path: str, width: int, height: int,
-                 cameras: List[Camera], detection_connection: connection.Connection,
+                 cameras: List[Camera], detection_connections: List[connection.Connection],
                  polygons: List[DefinedPolygon], screen_connection: connection.Connection,
                  debugging: bool, number_of_cameras: int):
         self.playground = playground
@@ -36,7 +37,7 @@ class Detector(object):
         self.width = width
         self.height = height
         self.cameras = cameras
-        self.detection_connection = detection_connection
+        self.detection_connections = detection_connections
         self.polygons = polygons
         self.debugging = debugging
         self.active_camera = cameras[0]
@@ -132,7 +133,9 @@ class Detector(object):
                                                 last_camera_swapping = time.time()
 
                                                 # Send message to VideoMaker process
-                                                self.detection_connection.send(ball)
+                                                for detect_connection in self.detection_connections:
+                                                    detect_connection.send(copy.copy(ball))
+
                                                 self.screen_connection.send(
                                                     [RecordScreenInfoEventItem(RecordScreenInfo.VR_ACTIVE_CAMERA,
                                                                                RecordScreenInfoOperation.SET,
@@ -142,8 +145,9 @@ class Detector(object):
                                                                                "yes")]
                                                 )
                                                 if self.debugging:
-                                                    debug_thread = threading.Thread(target=self.draw_debug_info,
-                                                                                    args=(captured_frame.clone(), ball))
+                                                    debug_thread = \
+                                                        threading.Thread(target=self.draw_debug_info,
+                                                                         args=(copy.deepcopy(captured_frame), ball))
                                                     debug_thread.start()
                                         detecting = False
                                         break
@@ -191,8 +195,9 @@ class Detector(object):
             )
         finally:
             try:
-                SharedFunctions.close_connection(self.detection_connection)
                 SharedFunctions.close_connection(self.screen_connection)
+                for conn in self.detection_connections:
+                    SharedFunctions.close_connection(conn)
                 for conn in self.ai_frame_connections:
                     SharedFunctions.close_connection(conn)
             except EOFError:

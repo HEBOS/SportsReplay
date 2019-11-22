@@ -16,9 +16,6 @@ class CapturedFrame(object):
         self.frame = frame
         self.camera_time = camera_time
 
-    def clone(self):
-        return CapturedFrame(self.camera, self.frame_number, self.snapshot_time, np.copy(self.frame), self.camera_time)
-
     def release(self):
         self.frame = None
 

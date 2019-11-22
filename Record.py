@@ -41,9 +41,11 @@ class Record(object):
     def start_single_camera(camera: Camera, ai_frame_connection: connection.Connection,
                             video_frame_connection: connection.Connection,
                             screen_connection: connection.Connection,
+                            detection_pipe_in: connection.Connection,
                             debugging: bool):
 
-        video = VideoRecorder(camera, ai_frame_connection, video_frame_connection, screen_connection, debugging)
+        video = VideoRecorder(camera, ai_frame_connection, video_frame_connection, screen_connection,
+                              detection_pipe_in, debugging)
         video.start()
 
     @staticmethod
@@ -51,13 +53,13 @@ class Record(object):
                                  class_id: int,
                                  network_config: str, network_weights: str, coco_config: str,
                                  width: int, height: int,
-                                 detection_connection: connection.Connection, cameras: List[Camera],
+                                 detection_connections: List[connection.Connection], cameras: List[Camera],
                                  polygons: List[DefinedPolygon], screen_connection: connection.Connection,
                                  debugging: bool, number_of_cameras: int):
 
         detector = Detector(playground, ai_frame_connections, class_id,
                             network_config, network_weights,
-                            coco_config, width, height, cameras, detection_connection,
+                            coco_config, width, height, cameras, detection_connections,
                             polygons, screen_connection, debugging, number_of_cameras)
 
         detector.start()
@@ -132,13 +134,16 @@ class Record(object):
         output_video = SharedFunctions.get_output_video(video_making_path, playground, self.planned_start_time)
 
         # Define the pipes, for the communication between the processes
-        detection_pipe_in, detection_pipe_out = Pipe(duplex=False, )
         video_maker_detection_pipe_in, video_maker_detection_pipe_out = Pipe(duplex=False)
         detector_screen_pipe_in, detector_screen_pipe_out = Pipe(duplex=False)
         video_maker_screen_pipe_in, video_maker_screen_pipe_out = Pipe(duplex=False)
         dumping_screen_information_pipes = [detector_screen_pipe_in, video_maker_screen_pipe_in]
         video_frame_pipes_in = []
         ai_frame_pipes_in = []
+        video_frame_pipes_out = []
+        ai_frame_pipes_out = []
+        detection_pipes_in = []
+        detection_pipes_out = []
         cameras = []
 
         # For each camera defined in the settings, generate one process
@@ -181,13 +186,13 @@ class Record(object):
                               "! video/x-raw,format=BGRx" \
                               "! videoconvert " \
                               "! video/x-raw,format=BGR " \
-                              "! appsink sync=0".format(location=v,
-                                                        fps=fps,
-                                                        width=width,
-                                                        height=height,
-                                                        latency=latency,
-                                                        user=rtsp_user,
-                                                        password=rtsp_password)
+                              "! appsink sync=true".format(location=v,
+                                                           fps=fps,
+                                                           width=width,
+                                                           height=height,
+                                                           latency=latency,
+                                                           user=rtsp_user,
+                                                           password=rtsp_password)
 
             # Define the camera, and add it to the list of cameras
             camera = Camera(i, source_path, fps, cdfps, width, height,
@@ -201,9 +206,15 @@ class Record(object):
             # Add pipe connection for recorded frames to be sent to video maker
             video_frame_pipe_in, video_frame_pipe_out = Pipe(duplex=False)
             video_frame_pipes_in.append(video_frame_pipe_in)
+            video_frame_pipes_out.append(video_frame_pipe_out)
 
             ai_frame_pipe_in, ai_frame_pipe_out = Pipe(duplex=False)
             ai_frame_pipes_in.append(ai_frame_pipe_in)
+            ai_frame_pipes_out.append(ai_frame_pipe_out)
+
+            detection_pipe_in, detection_pipe_out = Pipe(duplex=False, )
+            detection_pipes_in.append(detection_pipe_in)
+            detection_pipes_out.append(detection_pipe_out)
 
             # Start recording
             processes.append(Process(target=self.start_single_camera,
@@ -211,12 +222,13 @@ class Record(object):
                                            ai_frame_pipe_out,
                                            video_frame_pipe_out,
                                            camera_screen_pipe_out,
+                                           detection_pipe_in,
                                            debugging)))
 
         # Create a process for activity detection
         processes.append(Process(target=self.start_activity_detection,
                                  args=(playground, ai_frame_pipes_in, class_id, network_config, network_weights,
-                                       coco_config, width, height, detection_pipe_out, cameras,
+                                       coco_config, width, height, detection_pipes_out, cameras,
                                        polygons, detector_screen_pipe_out, debugging,
                                        len(video_addresses))))
 
@@ -295,18 +307,25 @@ class Record(object):
                 self.dumping_screen_information = False
             dump_information_thread.join()
 
-            SharedFunctions.close_connection(detection_pipe_in)
-            SharedFunctions.close_connection(detection_pipe_out)
             SharedFunctions.close_connection(video_maker_detection_pipe_in)
             SharedFunctions.close_connection(video_maker_detection_pipe_out)
             SharedFunctions.close_connection(detector_screen_pipe_in)
             SharedFunctions.close_connection(detector_screen_pipe_out)
             SharedFunctions.close_connection(video_maker_screen_pipe_in)
             SharedFunctions.close_connection(video_maker_screen_pipe_out)
-            SharedFunctions.close_connection(ai_frame_pipe_in)
-            SharedFunctions.close_connection(ai_frame_pipe_out)
-            SharedFunctions.close_connection(video_frame_pipe_in)
-            SharedFunctions.close_connection(video_frame_pipe_out)
+
+            for conn in detection_pipes_out:
+                SharedFunctions.close_connection(conn)
+            for conn in detection_pipes_in:
+                SharedFunctions.close_connection(conn)
+            for conn in ai_frame_pipes_in:
+                SharedFunctions.close_connection(conn)
+            for conn in ai_frame_pipes_out:
+                SharedFunctions.close_connection(conn)
+            for conn in video_frame_pipes_in:
+                SharedFunctions.close_connection(conn)
+            for conn in video_frame_pipes_out:
+                SharedFunctions.close_connection(conn)
         except Exception as ex:
             self.dispatching = False
             self.dumping_screen_information = False
