@@ -2,16 +2,17 @@
 import cv2
 import time
 import numpy as np
-import multiprocessing as mp
+from multiprocessing import connection
 from typing import List
 import os
 import gc
 import socket
 import errno
+import queue
+import threading
 from Shared.CapturedFrame import CapturedFrame
 from Shared.SharedFunctions import SharedFunctions
 from Shared.CvFunctions import CvFunctions
-from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.DefinedPolygon import DefinedPolygon
 from Shared.RecordScreenInfo import RecordScreenInfo
 from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
@@ -21,13 +22,13 @@ from Shared.LogoRenderer import LogoRenderer
 
 
 class VideoMaker(object):
-    def __init__(self, playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                 video_latency: float, detection_connection: mp.connection.Connection,
+    def __init__(self, playground: int, video_frame_connections: List[connection.Connection], output_video: str,
+                 video_latency: float, detection_connection: connection.Connection,
                  polygons: List[DefinedPolygon], width: int, height: int, fps: int,
-                 screen_connection: mp.connection.Connection, debugging: bool):
+                 screen_connection: connection.Connection, debugging: bool):
         self.config = Configuration()
         self.playground = playground
-        self.video_queue = video_queue
+        self.video_frame_connections = video_frame_connections
         self.output_video = output_video
         self.video_latency = video_latency
         self.detection_connection = detection_connection
@@ -48,6 +49,15 @@ class VideoMaker(object):
             os.path.join(os.getcwd(), self.config.video_maker["logo-path"]), self.width)
 
         self.writer = None
+        self.video_making = True
+
+        self.frame_queue = queue.Queue(maxsize=200)
+        self.frame_queue_lock = threading.Lock()
+        self.video_making_lock = threading.Lock()
+        self.grabing_frames_thread_interrupt_lock = threading.Lock()
+        self.grabing_frames_thread_pending = True
+        self.grabing_frames_thread = threading.Thread(target=self.grab_frames, args=())
+        self.grabing_frames_thread.start()
 
     def start(self):
         output_pipeline = "appsrc " \
@@ -77,22 +87,24 @@ class VideoMaker(object):
             written_frames = 0
             warmed_up = False
             last_job = time.time()
-            while True:
+            video_making = True
+
+            while video_making:
+                with self.video_making_lock:
+                    video_making = self.video_making
                 try:
-                    if not self.video_queue.is_empty():
-                        last_job = time.time()
-                        warmed_up = True
+                    if self.frame_queue.qsize() > 0:
+                        with self.frame_queue_lock:
+                            captured_frame = self.frame_queue.get()
+
                         i += 1
-
-                        captured_frame: CapturedFrame = self.video_queue.dequeue("Video Queue")
-                        self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
+                        self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
                                                                                RecordScreenInfoOperation.SET,
-                                                                               self.video_queue.qsize()),
-                                                     RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
+                                                                               "yes"),
+                                                     RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
                                                                                RecordScreenInfoOperation.SET,
-                                                                               "yes")
+                                                                               self.frame_queue.qsize())
                                                      ])
-
                         # Delay rendering so that Detector can notify VideoMaker a bit earlier,
                         # before camera has switched
                         if captured_frame is not None:
@@ -114,11 +126,11 @@ class VideoMaker(object):
                                 if captured_frame.camera.id == self.active_camera_id:
                                     if (self.active_detection is not None) and self.debugging:
                                         self.draw_debug_info(captured_frame)
-                                    LogoRenderer.draw_logo(captured_frame.frame,
-                                                           self.resized_overlay_image,
-                                                           self.date_format,
-                                                           self.time_format,
-                                                           captured_frame.camera_time)
+                                    #LogoRenderer.draw_logo(captured_frame.frame,
+                                    #                       self.resized_overlay_image,
+                                    #                       self.date_format,
+                                    #                       self.time_format,
+                                    #                       captured_frame.camera_time)
 
                                     self.writer.write(captured_frame.frame)
                                     written_frames += 1
@@ -143,6 +155,8 @@ class VideoMaker(object):
                         # and hasn't got any other during the next 5 seconds.
                         if warmed_up:
                             if time.time() - last_job > 5:
+                                with self.video_making_lock:
+                                    self.video_making = False
                                 break
                 except EOFError:
                     pass
@@ -150,6 +164,10 @@ class VideoMaker(object):
                     if e.errno != errno.EPIPE:
                         # Not a broken pipe
                         raise
+
+            with self.grabing_frames_thread_interrupt_lock:
+                self.grabing_frames_thread_pending = False
+            self.grabing_frames_thread.join()
 
             self.writer.release()
             self.screen_connection.send(
@@ -170,10 +188,10 @@ class VideoMaker(object):
             )
         finally:
             try:
-                self.detection_connection.close()
-                self.detection_connection = None
-                self.screen_connection.close()
-                self.screen_connection = None
+                SharedFunctions.close_connection(self.detection_connection)
+                SharedFunctions.close_connection(self.screen_connection)
+                for conn in self.video_frame_connections:
+                    SharedFunctions.close_connection(conn)
                 CvFunctions.release_open_cv()
             except EOFError:
                 pass
@@ -181,6 +199,41 @@ class VideoMaker(object):
                 pass
             except Exception as ex:
                 print(ex)
+
+    def grab_frames(self):
+        last_job = 0
+        warmed_up = False
+        grabing_frames_thread_pending = True
+        try:
+            while grabing_frames_thread_pending:
+                with self.grabing_frames_thread_interrupt_lock:
+                    grabing_frames_thread_pending = self.grabing_frames_thread_pending
+                for conn in self.video_frame_connections:
+                    has_frame, captured_frame = CapturedFrame.get_frame(conn)
+                    if has_frame:
+                        last_job = time.time()
+                        warmed_up = True
+                        if captured_frame is not None:
+                            if captured_frame.camera.id == self.active_camera_id:
+                                with self.frame_queue_lock:
+                                    self.frame_queue.put_nowait(captured_frame)
+                            else:
+                                captured_frame.release()
+                    else:
+                        # This ensures, that this process exits, if it has processed at least one frame,
+                        # and hasn't got any other during the next 5 seconds.
+                        if warmed_up:
+                            if time.time() - last_job > 5:
+                                with self.video_making_lock:
+                                    self.video_making = False
+                                with self.grabing_frames_thread_interrupt_lock:
+                                    self.grabing_frames_thread_pending = False
+        except Exception as ex:
+            print(ex)
+            with self.video_making_lock:
+                self.video_making = False
+            with self.grabing_frames_thread_interrupt_lock:
+                self.grabing_frames_thread_pending = False
 
     def draw_debug_info(self, captured_frame: CapturedFrame):
         # Draw protected area first

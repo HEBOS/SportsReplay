@@ -3,6 +3,7 @@ import os
 import time
 import datetime
 import ntpath
+from multiprocessing import connection
 import sys
 from dateutil.parser import parse as dateParser
 from Shared.Point import Point
@@ -144,3 +145,10 @@ class SharedFunctions(object):
     @staticmethod
     def to_post_body(data) -> str:
         return jsonpickle.encode(data)
+
+    @staticmethod
+    def close_connection(conn: connection.Connection):
+        try:
+            conn.close()
+        except:
+            pass

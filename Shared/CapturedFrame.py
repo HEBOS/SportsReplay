@@ -2,6 +2,9 @@
 import time
 import Shared.Camera as Camera
 import numpy as np
+from multiprocessing import connection
+import socket
+import errno
 
 
 class CapturedFrame(object):
@@ -18,3 +21,35 @@ class CapturedFrame(object):
 
     def release(self):
         self.frame = None
+
+    @staticmethod
+    def get_frame(conn: connection.Connection):
+        try:
+            if conn.poll():
+                captured_frame = conn.recv()
+                return True, captured_frame
+            else:
+                return False, None
+        except EOFError:
+            pass
+        except socket.error as e:
+            if e.errno != errno.EPIPE:
+                # Not a broken pipe
+                raise
+        finally:
+            pass
+        return False, None
+
+    @staticmethod
+    def send_frame(conn: connection.Connection, frame):
+        try:
+            conn.send(frame)
+        except EOFError:
+            pass
+        except socket.error as e:
+            if e.errno != errno.EPIPE:
+                # Not a broken pipe
+                raise
+        finally:
+            pass
+

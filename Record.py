@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import multiprocessing as mp
+from multiprocessing import connection, Pipe, Process
 import time
 import os
 import shutil
@@ -14,7 +14,6 @@ from Recorder.VideoRecorder import VideoRecorder
 from ActivityDetector.Detector import Detector
 from Shared.Camera import Camera
 from VideoMaker.VideoMaker import VideoMaker
-from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.DefinedPolygon import DefinedPolygon
 from Uploaders.FtpUploader import FtpUploader
 from Shared.RecordScreenInfo import RecordScreenInfo
@@ -39,33 +38,36 @@ class Record(object):
                                  self.planned_start_time + int(self.config.common["playtime"]))
 
     @staticmethod
-    def start_single_camera(camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                            screen_connection: mp.connection.Connection, debugging: bool):
+    def start_single_camera(camera: Camera, ai_frame_connection: connection.Connection,
+                            video_frame_connection: connection.Connection,
+                            screen_connection: connection.Connection,
+                            debugging: bool):
 
-        video = VideoRecorder(camera, ai_queue, video_queue, screen_connection, debugging)
+        video = VideoRecorder(camera, ai_frame_connection, video_frame_connection, screen_connection, debugging)
         video.start()
 
     @staticmethod
-    def start_activity_detection(playground: int, ai_queue: MultiProcessingQueue,
-                                 video_queue: MultiProcessingQueue, class_id: int,
+    def start_activity_detection(playground: int, ai_frame_connections: List[connection.Connection],
+                                 class_id: int,
                                  network_config: str, network_weights: str, coco_config: str,
                                  width: int, height: int,
-                                 detection_connection: mp.connection.Connection, cameras: List[Camera],
-                                 polygons: List[DefinedPolygon], screen_connection: mp.connection.Connection,
+                                 detection_connection: connection.Connection, cameras: List[Camera],
+                                 polygons: List[DefinedPolygon], screen_connection: connection.Connection,
                                  debugging: bool, number_of_cameras: int):
 
-        detector = Detector(playground, ai_queue, video_queue, class_id, network_config, network_weights,
+        detector = Detector(playground, ai_frame_connections, class_id,
+                            network_config, network_weights,
                             coco_config, width, height, cameras, detection_connection,
                             polygons, screen_connection, debugging, number_of_cameras)
 
         detector.start()
 
     @staticmethod
-    def start_video_making(playground: int, video_queue: MultiProcessingQueue, output_video: str,
-                           latency: float, detection_connection: mp.connection.Connection,
+    def start_video_making(playground: int, video_frame_connections: List[connection.Connection], output_video: str,
+                           latency: float, detection_connection: connection.Connection,
                            polygons: List[DefinedPolygon], width: int, height: int, fps: int,
-                           screen_connection: mp.connection.Connection, debugging: bool):
-        video_maker = VideoMaker(playground, video_queue, output_video, latency,
+                           screen_connection: connection.Connection, debugging: bool):
+        video_maker = VideoMaker(playground, video_frame_connections, output_video, latency,
                                  detection_connection, polygons, width, height, fps, screen_connection, debugging)
         video_maker.start()
 
@@ -95,9 +97,6 @@ class Record(object):
         streaming_path = os.path.join(dump_path, self.config.video_maker["streaming-path"])
         SharedFunctions.ensure_directory_exists(streaming_path)
 
-        # Create queues and lists
-        ai_queue = MultiProcessingQueue(maxsize=200)
-        video_queue = MultiProcessingQueue(maxsize=200)
         processes = []
         i = 0
 
@@ -133,12 +132,13 @@ class Record(object):
         output_video = SharedFunctions.get_output_video(video_making_path, playground, self.planned_start_time)
 
         # Define the pipes, for the communication between the processes
-        detection_pipe_in, detection_pipe_out = mp.Pipe(duplex=False)
-        video_maker_pipe_in, video_maker_pipe_out = mp.Pipe(duplex=False)
-        detector_screen_pipe_in, detector_screen_pipe_out = mp.Pipe(duplex=False)
-        video_maker_screen_pipe_in, video_maker_screen_pipe_out = mp.Pipe(duplex=False)
+        detection_pipe_in, detection_pipe_out = Pipe(duplex=False, )
+        video_maker_detection_pipe_in, video_maker_detection_pipe_out = Pipe(duplex=False)
+        detector_screen_pipe_in, detector_screen_pipe_out = Pipe(duplex=False)
+        video_maker_screen_pipe_in, video_maker_screen_pipe_out = Pipe(duplex=False)
         dumping_screen_information_pipes = [detector_screen_pipe_in, video_maker_screen_pipe_in]
-
+        video_frame_pipes_in = []
+        ai_frame_pipes_in = []
         cameras = []
 
         # For each camera defined in the settings, generate one process
@@ -195,29 +195,36 @@ class Record(object):
             cameras.append(camera)
 
             # Add pipe connection for dumping screen messages
-            camera_screen_pipe_in, camera_screen_pipe_out = mp.Pipe(duplex=False)
+            camera_screen_pipe_in, camera_screen_pipe_out = Pipe(duplex=False)
             dumping_screen_information_pipes.append(camera_screen_pipe_in)
 
+            # Add pipe connection for recorded frames to be sent to video maker
+            video_frame_pipe_in, video_frame_pipe_out = Pipe(duplex=False)
+            video_frame_pipes_in.append(video_frame_pipe_in)
+
+            ai_frame_pipe_in, ai_frame_pipe_out = Pipe(duplex=False)
+            ai_frame_pipes_in.append(ai_frame_pipe_in)
+
             # Start recording
-            processes.append(mp.Process(target=self.start_single_camera,
-                                        args=(camera,
-                                              ai_queue,
-                                              video_queue,
-                                              camera_screen_pipe_out,
-                                              debugging)))
+            processes.append(Process(target=self.start_single_camera,
+                                     args=(camera,
+                                           ai_frame_pipe_out,
+                                           video_frame_pipe_out,
+                                           camera_screen_pipe_out,
+                                           debugging)))
 
         # Create a process for activity detection
-        processes.append(mp.Process(target=self.start_activity_detection,
-                                    args=(playground, ai_queue, video_queue, class_id, network_config, network_weights,
-                                          coco_config, width, height, detection_pipe_out, cameras,
-                                          polygons, detector_screen_pipe_out, debugging,
-                                          len(video_addresses))))
+        processes.append(Process(target=self.start_activity_detection,
+                                 args=(playground, ai_frame_pipes_in, class_id, network_config, network_weights,
+                                       coco_config, width, height, detection_pipe_out, cameras,
+                                       polygons, detector_screen_pipe_out, debugging,
+                                       len(video_addresses))))
 
         # Create a process for video rendering
-        processes.append(mp.Process(target=self.start_video_making,
-                                    args=(playground, video_queue, output_video, video_latency,
-                                          video_maker_pipe_in, polygons, width, height, fps,
-                                          video_maker_screen_pipe_out, debugging)))
+        processes.append(Process(target=self.start_video_making,
+                                 args=(playground, video_frame_pipes_in, output_video, video_latency,
+                                       video_maker_detection_pipe_in, polygons, width, height, fps,
+                                       video_maker_screen_pipe_out, debugging)))
 
         # Start the processes
         started_at = time.time()
@@ -231,7 +238,7 @@ class Record(object):
 
         # Start thread that deals with pipes, i.e. dispatches the messages
         dispatch_thread = threading.Thread(target=self.dispatch_detection_messages,
-                                           args=(detection_pipe_in, video_maker_pipe_out))
+                                           args=(detection_pipe_in, video_maker_detection_pipe_out))
         dispatch_thread.start()
         dump_information_thread = threading.Thread(target=self.dump_screen_information,
                                                    args=(dumping_screen_information_pipes,))
@@ -287,6 +294,19 @@ class Record(object):
             with self.dumping_screen_information_lock:
                 self.dumping_screen_information = False
             dump_information_thread.join()
+
+            SharedFunctions.close_connection(detection_pipe_in)
+            SharedFunctions.close_connection(detection_pipe_out)
+            SharedFunctions.close_connection(video_maker_detection_pipe_in)
+            SharedFunctions.close_connection(video_maker_detection_pipe_out)
+            SharedFunctions.close_connection(detector_screen_pipe_in)
+            SharedFunctions.close_connection(detector_screen_pipe_out)
+            SharedFunctions.close_connection(video_maker_screen_pipe_in)
+            SharedFunctions.close_connection(video_maker_screen_pipe_out)
+            SharedFunctions.close_connection(ai_frame_pipe_in)
+            SharedFunctions.close_connection(ai_frame_pipe_out)
+            SharedFunctions.close_connection(video_frame_pipe_in)
+            SharedFunctions.close_connection(video_frame_pipe_out)
         except Exception as ex:
             self.dispatching = False
             self.dumping_screen_information = False
@@ -306,8 +326,8 @@ class Record(object):
         shutil.rmtree(streaming_path)
         shutil.rmtree(video_making_path)
 
-    def dispatch_detection_messages(self, incoming_connection: mp.connection.Connection,
-                                    outgoing_connection: mp.connection.Connection):
+    def dispatch_detection_messages(self, incoming_connection: connection.Connection,
+                                    outgoing_connection: connection.Connection):
         dispatching = True
         active_camera_id = 1
         while dispatching:
@@ -336,14 +356,14 @@ class Record(object):
 
         # Do the cleanup
         try:
-            incoming_connection.close()
-            outgoing_connection.close()
+            SharedFunctions.close_connection(incoming_connection)
+            SharedFunctions.close_connection(outgoing_connection)
         except EOFError:
             pass
         except socket.error as e:
             pass
 
-    def dump_screen_information(self, incoming_connections: List[mp.Pipe]):
+    def dump_screen_information(self, incoming_connections: List[Pipe]):
         dumping_screen_information = True
         while dumping_screen_information:
             with self.dumping_screen_information_lock:
@@ -380,7 +400,7 @@ class Record(object):
         # Do the cleanup
         try:
             for incoming_connection in incoming_connections:
-                incoming_connection.close()
+                SharedFunctions.close_connection(incoming_connection)
         except EOFError:
             pass
         except socket.error as e:

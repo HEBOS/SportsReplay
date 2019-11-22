@@ -3,29 +3,28 @@ import threading
 import time
 import math
 import cv2
-import multiprocessing as mp
+from multiprocessing import connection
 import numpy as np
 import socket
 import errno
-import os
 import sys
 from Shared.SharedFunctions import SharedFunctions
 from Shared.CvFunctions import CvFunctions
 from Shared.Camera import Camera
 from Shared.CapturedFrame import CapturedFrame
-from Shared.MultiProcessingQueue import MultiProcessingQueue
 from Shared.RecordScreenInfo import RecordScreenInfo
 from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 
 
 class VideoRecorder(object):
-    def __init__(self, camera: Camera, ai_queue: MultiProcessingQueue, video_queue: MultiProcessingQueue,
-                 screen_connection: mp.connection.Connection, debugging: bool):
+    def __init__(self, camera: Camera, ai_frame_connection: connection.Connection,
+                 video_frame_connection: connection.Connection,
+                 screen_connection: connection.Connection, debugging: bool):
         self.init_stdout = sys.stdout
         self.camera = camera
-        self.ai_queue = ai_queue
-        self.video_queue = video_queue
+        self.ai_frame_connection = ai_frame_connection
+        self.video_frame_connection = video_frame_connection
         self.debugging = debugging
         self.detection_frequency = math.floor(camera.fps / camera.cdfps)
         self.screen_connection = screen_connection
@@ -100,20 +99,18 @@ class VideoRecorder(object):
                                                            self.camera.start_of_capture,
                                                            capture.get(cv2.CAP_PROP_POS_MSEC)))
 
-                        self.ai_queue.enqueue(captured_frame, "AI Queue {}".format(self.camera.id))
-                        self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.AI_QUEUE_COUNT,
-                                                                               RecordScreenInfoOperation.SET,
-                                                                               self.ai_queue.qsize())])
+                        CapturedFrame.send_frame(self.ai_frame_connection, captured_frame)
 
                     # Pass it to VideoMaker process
-                    self.video_queue.enqueue(CapturedFrame(self.camera,
+                    CapturedFrame.send_frame(self.video_frame_connection,
+                                             CapturedFrame(self.camera,
                                                            frame_number,
                                                            snapshot_time,
                                                            frame,
                                                            SharedFunctions.get_recording_time(
                                                                self.camera.start_of_capture,
-                                                               capture.get(cv2.CAP_PROP_POS_MSEC))),
-                                             "Video Queue")
+                                                               capture.get(cv2.CAP_PROP_POS_MSEC))))
+
                     self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
                                                                            RecordScreenInfoOperation.SET,
                                                                            self.camera.id)])
@@ -152,15 +149,14 @@ class VideoRecorder(object):
                                                                    RecordScreenInfoOperation.SET,
                                                                    SharedFunctions.get_exception_info(ex))])
         try:
-            self.screen_connection.close()
-            self.screen_connection = None
+            SharedFunctions.close_connection(self.screen_connection)
             if capture is not None:
                 capture.release()
             CvFunctions.release_open_cv()
-            self.ai_queue.mark_as_done()
-            self.video_queue.mark_as_done()
-            self.ai_queue = None
-            self.video_queue = None
+            CapturedFrame.send_frame(self.ai_frame_connection, None)
+            CapturedFrame.send_frame(self.video_frame_connection, None)
+            SharedFunctions.close_connection(self.ai_frame_connection)
+            SharedFunctions.close_connection(self.video_frame_connection)
             print("TOTAL FRAMES GRABBED: {}".format(total_frames))
         except EOFError:
             pass
@@ -178,4 +174,3 @@ class VideoRecorder(object):
                                                                "Camera {}, on playground {} is not responding."
                                                                .format(self.camera.id, self.camera.playground))
                                      ])
-
