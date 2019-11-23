@@ -3,7 +3,9 @@
 # sudo apt-get update && sudo apt-get install -y libdbus-1{,-dev}
 # sudo pip3 install -r requirements.txt
 
-
+# Install pyarrow using the instructions found here:
+# https://arrow.apache.org/docs/developers/cpp.html
+# sudo apt-get -y install cmake
 # sudo apt-get install protobuf-compiler libprotoc-dev
 # Run the following command to be able to run QueueImageTest2
 #    sudo apt-get install graphviz
@@ -41,4 +43,6 @@ blessings==1.7
 enum34==1.1.6
 python-dateutil==2.8.0
 freetype-py
-pillow==6.2.1
+pipeproxy==0.7
+shared-ndarray==1.1.1
+lmdb==0.98

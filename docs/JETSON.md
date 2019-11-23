@@ -50,3 +50,43 @@ Read instructions [here](COMMON.md).
 ## Setting up The Tunneling
 Read instructions [here](COMMON.md).
 
+## Installing Support for Shared Memory
+Install Arrow using the following [instructions](https://tutorials.technology/tutorials/21-how-to-compile-and-install-arrow-from-source-code.html).
+
+### Note:
+Create symbolic links for aarch64 architecture (the stated instructions are for x86/x64).
+
+`sudo ln -s /usr/lib/aarch64-linux-gnu/libboost_regex.a /usr/lib/aarch64-linux-gnu/libboost_regex-mt.a`
+
+`sudo ln -s /usr/lib/aarch64-linux-gnu/libboost_system.a /usr/lib/aarch64-linux-gnu/libboost_system-mt.a`
+
+`sudo ln -s /usr/lib/aarch64-linux-gnu/libboost_filesystem.a /usr/lib/aarch64-linux-gnu/libboost_filesystem-mt.a`
+
+
+### Note about installing parket-cpp
+
+Building parquet-cpp master is no longer supported.  Build from C++
+  codebase in https://github.com/apache/arrow with -DARROW_PARQUET=ON
+  
+
+### Nota about using CMAKE to build Arrow
+
+`cmake -DARROW_PLASMA=ON -DARROW_PYTHON=ON -DARROW_PARQUET=ON ..`
+
+`cd $HOME/GitHub`
+
+`git clone https://github.com/apache/arrow.git`
+
+`cd arrow/cpp`
+
+`mkdir release`
+
+`cd release`
+
+`cmake -DARROW_PLASMA=ON -DARROW_PYTHON=ON -DARROW_PARQUET=ON ..`
+
+`make -j4`
+
+`make install`
+
+`pip install brain-plasma`

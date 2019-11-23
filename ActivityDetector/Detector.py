@@ -8,8 +8,9 @@ import os
 import socket
 import errno
 import copy
+import psutil
 from typing import List
-from Shared.CapturedFrame import CapturedFrame
+from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler
 from Shared.Camera import Camera
 from Shared.Detection import Detection
 from Shared.Linq import Linq
@@ -28,6 +29,8 @@ class Detector(object):
                  cameras: List[Camera], detection_connections: List[connection.Connection],
                  polygons: List[DefinedPolygon], screen_connection: connection.Connection,
                  debugging: bool, number_of_cameras: int):
+        #p = psutil.Process()
+        #p.cpu_affinity([0])
         self.playground = playground
         self.ai_frame_connections = ai_frame_connections
         self.class_id = class_id
@@ -67,7 +70,7 @@ class Detector(object):
             while detecting:
                 # We only proceed, if there is anything in the active camera queue
                 for conn in self.ai_frame_connections:
-                    has_frame, captured_frame = CapturedFrame.get_frame(conn)
+                    has_frame, captured_frame = SharedCapturedFrameHandler.get_frame(conn)
                     if has_frame:
                         last_job = time.time()
                         warmed_up = True
@@ -180,7 +183,7 @@ class Detector(object):
         except socket.error as e:
             if e.errno != errno.EPIPE:
                 # Not a broken pipe
-                raise
+                raise e
         except Exception as ex:
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.AI_EXCEPTIONS,

@@ -10,7 +10,8 @@ import socket
 import errno
 import queue
 import threading
-from Shared.CapturedFrame import CapturedFrame
+import psutil
+from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler
 from Shared.SharedFunctions import SharedFunctions
 from Shared.CvFunctions import CvFunctions
 from Shared.DefinedPolygon import DefinedPolygon
@@ -26,6 +27,8 @@ class VideoMaker(object):
                  video_latency: float, detection_connection: connection.Connection,
                  polygons: List[DefinedPolygon], width: int, height: int, fps: int,
                  screen_connection: connection.Connection, debugging: bool):
+        #p = psutil.Process()
+        #p.cpu_affinity([1])
         self.config = Configuration()
         self.playground = playground
         self.video_frame_connections = video_frame_connections
@@ -52,7 +55,6 @@ class VideoMaker(object):
         self.video_making = True
 
         self.frame_queue = queue.Queue(maxsize=200)
-        self.frame_queue_lock = threading.Lock()
         self.video_making_lock = threading.Lock()
         self.grabing_frames_thread_interrupt_lock = threading.Lock()
         self.grabing_frames_thread_pending = True
@@ -94,9 +96,7 @@ class VideoMaker(object):
                     video_making = self.video_making
                 try:
                     if self.frame_queue.qsize() > 0:
-                        with self.frame_queue_lock:
-                            captured_frame = self.frame_queue.get()
-
+                        captured_frame = self.frame_queue.get()
                         i += 1
                         self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
                                                                                RecordScreenInfoOperation.SET,
@@ -119,7 +119,7 @@ class VideoMaker(object):
                                 except socket.error as e:
                                     if e.errno != errno.EPIPE:
                                         # Not a broken pipe
-                                        raise
+                                        raise e
                                 finally:
                                     pass
 
@@ -158,7 +158,7 @@ class VideoMaker(object):
                 except socket.error as e:
                     if e.errno != errno.EPIPE:
                         # Not a broken pipe
-                        raise
+                        raise e
 
             with self.grabing_frames_thread_interrupt_lock:
                 self.grabing_frames_thread_pending = False
@@ -183,10 +183,6 @@ class VideoMaker(object):
             )
         finally:
             try:
-                SharedFunctions.close_connection(self.detection_connection)
-                SharedFunctions.close_connection(self.screen_connection)
-                for conn in self.video_frame_connections:
-                    SharedFunctions.close_connection(conn)
                 CvFunctions.release_open_cv()
             except EOFError:
                 pass
@@ -204,13 +200,12 @@ class VideoMaker(object):
                 with self.grabing_frames_thread_interrupt_lock:
                     grabing_frames_thread_pending = self.grabing_frames_thread_pending
                 for conn in self.video_frame_connections:
-                    has_frame, captured_frame = CapturedFrame.get_frame(conn)
+                    has_frame, captured_frame = SharedCapturedFrameHandler.get_frame(conn)
                     if has_frame:
                         last_job = time.time()
                         warmed_up = True
                         if captured_frame is not None:
-                            with self.frame_queue_lock:
-                                self.frame_queue.put_nowait(captured_frame)
+                            self.frame_queue.put_nowait(captured_frame)
                     else:
                         # This ensures, that this process exits, if it has processed at least one frame,
                         # and hasn't got any other during the next 5 seconds.

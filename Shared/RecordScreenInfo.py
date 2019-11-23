@@ -23,6 +23,7 @@ class RecordScreenInfo(object):
     CURRENT_TASK: int = 18
     VM_IS_LIVE: int = 19
     COMPLETED: int = 21
+    VR_QUEUE_COUNT: int = 22
 
     def __init__(self, terminal: EasyTerminal):
         self.terminal = terminal
@@ -107,4 +108,6 @@ class RecordScreenInfo(object):
             return "VM_IS_LIVE"
         if enum_value == 21:
             return "COMPLETED"
+        if enum_value == 22:
+            return "VR_QUEUE_COUNT"
         return ""

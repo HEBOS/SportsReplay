@@ -8,11 +8,12 @@ import numpy as np
 import socket
 import errno
 import sys
+import psutil
 import queue
 from Shared.SharedFunctions import SharedFunctions
 from Shared.CvFunctions import CvFunctions
 from Shared.Camera import Camera
-from Shared.CapturedFrame import CapturedFrame
+from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler
 from Shared.RecordScreenInfo import RecordScreenInfo
 from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
@@ -31,6 +32,9 @@ class VideoRecorder(object):
         self.detection_connection = detection_connection
         self.debugging = debugging
 
+        #p = psutil.Process()
+        #p.cpu_affinity([1 + camera.id])
+
         self.capturing = False
         self.capture_lock = threading.Lock()
 
@@ -44,10 +48,12 @@ class VideoRecorder(object):
         self.frame_dispatching_lock = threading.Lock()
         self.frame_dispatcher_thread = threading.Thread(target=self.dispatch_frames,
                                                         args=(self.ai_frames_queue,
-                                                              self.ai_frame_connection))
+                                                              self.ai_frame_connection,
+                                                              "ai"))
         self.video_dispatcher_thread = threading.Thread(target=self.dispatch_frames,
                                                         args=(self.video_frames_queue,
-                                                              self.video_frame_connection))
+                                                              self.video_frame_connection,
+                                                              "video"))
 
     def start(self):
         self.frame_dispatcher_thread.start()
@@ -137,23 +143,31 @@ class VideoRecorder(object):
                     except socket.error as e:
                         if e.errno != errno.EPIPE:
                             # Not a broken pipe
-                            raise
+                            raise e
                     finally:
                         pass
 
                     # Pass it to VideoMaker process, but only for active camera
                     if self.active_camera_id == self.camera.id:
-                        self.video_frames_queue.put_nowait(CapturedFrame(self.camera,
-                                                                         frame_number,
-                                                                         snapshot_time,
-                                                                         frame,
-                                                                         SharedFunctions.get_recording_time(
-                                                                             self.camera.start_of_capture,
-                                                                             capture.get(cv2.CAP_PROP_POS_MSEC))))
+                        try:
+                            self.video_frames_queue.put_nowait(CapturedFrame(self.camera,
+                                                                             frame_number,
+                                                                             snapshot_time,
+                                                                             frame,
+                                                                             SharedFunctions.get_recording_time(
+                                                                                 self.camera.start_of_capture,
+                                                                                 capture.get(cv2.CAP_PROP_POS_MSEC))))
+                        except Exception as e:
+                            print(SharedFunctions.get_exception_info(e))
+                            raise e
 
                     self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
                                                                            RecordScreenInfoOperation.SET,
-                                                                           self.camera.id)])
+                                                                           self.camera.id),
+                                                 RecordScreenInfoEventItem(RecordScreenInfo.VR_QUEUE_COUNT,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           self.video_frames_queue.qsize())
+                                                 ])
 
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                                                    RecordScreenInfoOperation.SET,
@@ -170,7 +184,7 @@ class VideoRecorder(object):
         except socket.error as e:
             if e.errno != errno.EPIPE:
                 # Not a broken pipe
-                raise
+                raise e
         except cv2.error as e:
             self.capturing = False
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,
@@ -194,14 +208,11 @@ class VideoRecorder(object):
         self.video_dispatcher_thread.join()
 
         try:
-            SharedFunctions.close_connection(self.screen_connection)
             if capture is not None:
                 capture.release()
             CvFunctions.release_open_cv()
-            CapturedFrame.send_frame(self.ai_frame_connection, None)
-            CapturedFrame.send_frame(self.video_frame_connection, None)
-            SharedFunctions.close_connection(self.ai_frame_connection)
-            SharedFunctions.close_connection(self.video_frame_connection)
+            SharedCapturedFrameHandler.send_frame(self.ai_frame_connection, None, "ai")
+            SharedCapturedFrameHandler.send_frame(self.video_frame_connection, None, "video")
             print("TOTAL FRAMES GRABBED: {}".format(total_frames))
         except EOFError:
             pass
@@ -220,13 +231,13 @@ class VideoRecorder(object):
                                                                .format(self.camera.id, self.camera.playground))
                                      ])
 
-    def dispatch_frames(self, q: queue.Queue, conn: connection.Connection):
+    def dispatch_frames(self, q: queue.Queue, conn: connection.Connection, name_prefix: str):
         frame_dispatching = True
         while frame_dispatching:
             with self.frame_dispatching_lock:
                 frame_dispatching = self.frame_dispatching
             if q.qsize() > 0:
                 captured_frame: CapturedFrame = q.get()
-                CapturedFrame.send_frame(conn, captured_frame)
+                SharedCapturedFrameHandler.send_frame(conn, captured_frame, name_prefix)
 
 

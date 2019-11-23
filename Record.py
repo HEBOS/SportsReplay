@@ -7,6 +7,7 @@ import threading
 import argparse
 import socket
 import errno
+import psutil
 from typing import List
 from Shared.Configuration import Configuration
 from Shared.SharedFunctions import SharedFunctions
@@ -25,6 +26,8 @@ from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 
 class Record(object):
     def __init__(self, hour: int, minute: int):
+        #p = psutil.Process()
+        #p.cpu_affinity([0])
         self.config = Configuration()
         self.dispatching = True
         self.dumping_screen_information = True
@@ -99,6 +102,9 @@ class Record(object):
         streaming_path = os.path.join(dump_path, self.config.video_maker["streaming-path"])
         SharedFunctions.ensure_directory_exists(streaming_path)
 
+        # Ensure that file storage for temporarely saving frames exists
+        SharedFunctions.ensure_directory_exists("/tmp/sports-replay")
+
         processes = []
         i = 0
 
@@ -157,7 +163,7 @@ class Record(object):
                               "! h264parse " \
                               "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
                               "! nvvidconv " \
-                              "! video/x-raw(memory:NVMM),format=BGRx " \
+                              "! video/x-raw(memory:NVMM),format=BGRx,width={width},height={height} " \
                               "! queue " \
                               "! nvvidconv " \
                               "! video/x-raw,format=BGRx" \
@@ -176,16 +182,16 @@ class Record(object):
                               "! queue " \
                               "! rtph264depay " \
                               "! h264parse " \
-                              "! omxh264dec " \
-                              "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
-                              "! video/x-raw,framerate={fps}/1 " \
+                              "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
                               "! nvvidconv " \
-                              "! video/x-raw(memory:NVMM),format=BGRx " \
+                              "! video/x-raw(memory:NVMM),format=BGRx,width={width},height={height} " \
                               "! queue " \
                               "! nvvidconv " \
                               "! video/x-raw,format=BGRx" \
                               "! videoconvert " \
                               "! video/x-raw,format=BGR " \
+                              "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
+                              "! video/x-raw,framerate={fps}/1 " \
                               "! appsink sync=true".format(location=v,
                                                            fps=fps,
                                                            width=width,
@@ -369,7 +375,7 @@ class Record(object):
             except socket.error as e:
                 if e.errno != errno.EPIPE:
                     # Not a broken pipe
-                    raise
+                    raise e
             finally:
                 pass
 
