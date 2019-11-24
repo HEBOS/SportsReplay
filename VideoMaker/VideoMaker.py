@@ -95,20 +95,6 @@ class VideoMaker(object):
                 with self.video_making_lock:
                     video_making = self.video_making
                 try:
-                    # Check if there is a message from Detector that active camera has changed
-                    try:
-                        if self.detection_connection.poll():
-                            self.active_detection = self.detection_connection.recv()
-                            self.active_camera_id = self.active_detection.camera_id
-                    except EOFError:
-                        pass
-                    except socket.error as e:
-                        if e.errno != errno.EPIPE:
-                            # Not a broken pipe
-                            raise e
-                    finally:
-                        pass
-
                     if self.frame_queue.qsize() > 0:
                         captured_frame = self.frame_queue.get()
                         i += 1
@@ -120,6 +106,25 @@ class VideoMaker(object):
                                                                                self.frame_queue.qsize())
                                                      ])
                         if captured_frame is not None:
+                            # Delay rendering so that Detector can notify VideoMaker a bit earlier,
+                            # before camera has switched
+                            #while captured_frame.timestamp - self.video_latency < time.time():
+                            #    pass
+
+                            # Check if there is a message from Detector that active camera has changed
+                            try:
+                                if self.detection_connection.poll():
+                                    self.active_detection = self.detection_connection.recv()
+                                    self.active_camera_id = self.active_detection.camera_id
+                            except EOFError:
+                                pass
+                            except socket.error as e:
+                                if e.errno != errno.EPIPE:
+                                    # Not a broken pipe
+                                    raise e
+                            finally:
+                                pass
+
                             if captured_frame.camera.id == self.active_camera_id:
                                 if self.debugging:
                                     self.draw_debug_info(captured_frame)

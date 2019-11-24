@@ -373,9 +373,7 @@ class Record(object):
             except EOFError:
                 pass
             except socket.error as e:
-                if e.errno != errno.EPIPE:
-                    # Not a broken pipe
-                    raise e
+                pass
             finally:
                 pass
 
