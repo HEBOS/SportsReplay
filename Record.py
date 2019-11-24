@@ -27,7 +27,7 @@ from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 class Record(object):
     def __init__(self, hour: int, minute: int):
         #p = psutil.Process()
-        #p.cpu_affinity([0])
+        #p.cpu_affinity(0)
         self.config = Configuration()
         self.dispatching = True
         self.dumping_screen_information = True
@@ -149,7 +149,7 @@ class Record(object):
         video_frame_pipes_out = []
         ai_frame_pipes_out = []
         detection_pipes_in = []
-        detection_pipes_out = []
+        detection_pipes_out = [video_maker_detection_pipe_out]
         cameras = []
 
         # For each camera defined in the settings, generate one process

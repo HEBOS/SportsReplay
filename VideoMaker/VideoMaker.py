@@ -95,6 +95,20 @@ class VideoMaker(object):
                 with self.video_making_lock:
                     video_making = self.video_making
                 try:
+                    # Check if there is a message from Detector that active camera has changed
+                    try:
+                        if self.detection_connection.poll():
+                            self.active_detection = self.detection_connection.recv()
+                            self.active_camera_id = self.active_detection.camera_id
+                    except EOFError:
+                        pass
+                    except socket.error as e:
+                        if e.errno != errno.EPIPE:
+                            # Not a broken pipe
+                            raise e
+                    finally:
+                        pass
+
                     if self.frame_queue.qsize() > 0:
                         captured_frame = self.frame_queue.get()
                         i += 1
@@ -105,24 +119,8 @@ class VideoMaker(object):
                                                                                RecordScreenInfoOperation.SET,
                                                                                self.frame_queue.qsize())
                                                      ])
-                        # Delay rendering so that Detector can notify VideoMaker a bit earlier,
-                        # before camera has switched
                         if captured_frame is not None:
-                            if time.time() >= captured_frame.timestamp - self.video_latency:
-                                # Check if there is a message from Detector that active camera change has happen
-                                try:
-                                    if self.detection_connection.poll():
-                                        self.active_detection = self.detection_connection.recv()
-                                        self.active_camera_id = self.active_detection.camera_id
-                                except EOFError:
-                                    pass
-                                except socket.error as e:
-                                    if e.errno != errno.EPIPE:
-                                        # Not a broken pipe
-                                        raise e
-                                finally:
-                                    pass
-
+                            if captured_frame.camera.id == self.active_camera_id:
                                 if self.debugging:
                                     self.draw_debug_info(captured_frame)
                                 LogoRenderer.draw_logo(captured_frame.frame,
@@ -141,10 +139,10 @@ class VideoMaker(object):
                                     [RecordScreenInfoEventItem(RecordScreenInfo.VM_WRITTEN_FRAMES,
                                                                RecordScreenInfoOperation.SET,
                                                                written_frames)])
-                            else:
-                                captured_frame.release()
-                                if i % self.fps == 0:
-                                    gc.collect()
+                        else:
+                            with self.video_making_lock:
+                                self.video_making = False
+                            break
                     else:
                         # This ensures, that this process exits, if it has processed at least one frame,
                         # and hasn't got any other during the next 5 seconds.
@@ -170,6 +168,7 @@ class VideoMaker(object):
                                            RecordScreenInfoOperation.SET,
                                            "VideoMaker ended.")])
         except Exception as ex:
+            print(ex)
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.VM_EXCEPTIONS,
                                            RecordScreenInfoOperation.ADD,
@@ -206,6 +205,12 @@ class VideoMaker(object):
                         warmed_up = True
                         if captured_frame is not None:
                             self.frame_queue.put_nowait(captured_frame)
+                        else:
+                            self.frame_queue.put_nowait(None)
+                            with self.video_making_lock:
+                                self.video_making = False
+                            with self.grabing_frames_thread_interrupt_lock:
+                                self.grabing_frames_thread_pending = False
                     else:
                         # This ensures, that this process exits, if it has processed at least one frame,
                         # and hasn't got any other during the next 5 seconds.
@@ -233,11 +238,12 @@ class VideoMaker(object):
                 cv2.polylines(captured_frame.frame, [pts], True, border_color)
 
         # Draw last detection
-        if self.active_detection.camera_id == self.active_camera_id:
-            points = SharedFunctions.get_points_array(self.active_detection.points, self.width / 480)
-            pts = np.array(points, np.int32)
-            pts = pts.reshape((-1, 1, 2))
-            cv2.polylines(captured_frame.frame, [pts], True, (52, 158, 190))
+        if self.active_detection is not None:
+            if self.active_detection.camera_id == self.active_camera_id:
+                points = SharedFunctions.get_points_array(self.active_detection.points, self.width / 480)
+                pts = np.array(points, np.int32)
+                pts = pts.reshape((-1, 1, 2))
+                cv2.polylines(captured_frame.frame, [pts], True, (52, 158, 190))
 
         frame_info = int(captured_frame.snapshot_time) + captured_frame.frame_number / 10000
         cv2.putText(captured_frame.frame, str(frame_info),

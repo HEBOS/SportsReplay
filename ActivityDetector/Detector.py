@@ -86,7 +86,6 @@ class Detector(object):
                         elif (captured_frame is not None) and captured_frame.camera.id != self.active_camera.id:
                             # Run the AI detection, based on class id
                             detections = net.detect(captured_frame.frame, True)
-                            cv2.waitKey(3)
 
                             # Convert detections into balls
                             balls = []
@@ -152,7 +151,6 @@ class Detector(object):
                                                         threading.Thread(target=self.draw_debug_info,
                                                                          args=(copy.deepcopy(captured_frame), ball))
                                                     debug_thread.start()
-                                        detecting = False
                                         break
 
                                     # Preserve information about last detection, no matter,

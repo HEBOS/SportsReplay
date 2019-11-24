@@ -3,6 +3,7 @@ import time
 import Shared.Camera as Camera
 import numpy as np
 from multiprocessing import connection
+from Shared.SharedFunctions import SharedFunctions
 import os
 import socket
 import errno
@@ -29,13 +30,13 @@ class SharedCapturedFrame(object):
         self.timestamp = int(snapshot_time) + float(frame_number / 1000)
         self.snapshot_time = snapshot_time
         self.camera_time = camera_time
-        self.file_path = "/tmp/sports-replay/" \
-                         "camera-{camera}-{name_prefix}" \
+        self.file_path = "camera-{camera}-{name_prefix}-" \
                          "{frame_number}-" \
                          "{camera_time}.npy".format(camera=camera.id,
                                                     frame_number=frame_number,
                                                     camera_time=int(self.timestamp * 1000000),
                                                     name_prefix=name_prefix)
+        self.file_path = os.path.join(camera.session_path, self.file_path)
         self.channels = channels
         self.size = size
 
@@ -54,7 +55,6 @@ class SharedCapturedFrameHandler(object):
                             image = np.frombuffer(image_bytes, dtype=np.uint8)
                             frame = image.copy().reshape(*shared_captured_frame.size, shared_captured_frame.channels)
                             f.close()
-                        print("FILE REAAAAAAAAAAAAAAAAAAAAAAAAAD")
                         captured_frame: CapturedFrame = CapturedFrame(shared_captured_frame.camera,
                                                                       shared_captured_frame.frame_number,
                                                                       shared_captured_frame.snapshot_time,
@@ -94,16 +94,17 @@ class SharedCapturedFrameHandler(object):
                     f.write(captured_frame.frame.tobytes())
                     f.close()
 
-                print("FILE WRITTEEEEEEEEEEEEEEEEEEEEEEEEEEN")
                 conn.send(shared_captured_frame)
             else:
                 conn.send(None)
+        except Exception as ex:
+            print(SharedFunctions.get_exception_info(ex))
         except EOFError:
             pass
         except socket.error as e:
             if e.errno != errno.EPIPE:
                 # Not a broken pipe
-                raise e
+                print(SharedFunctions.get_exception_info(e))
         finally:
             pass
 

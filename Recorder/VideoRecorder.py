@@ -114,7 +114,6 @@ class VideoRecorder(object):
 
                     # Get the frame itself
                     ref, frame = capture.retrieve()
-                    cv2.waitKey(1)
 
                     if total_frames % 10 == 0:
                         print("FRAMES GRABBED: {}".format(total_frames))
@@ -147,19 +146,17 @@ class VideoRecorder(object):
                     finally:
                         pass
 
-                    # Pass it to VideoMaker process, but only for active camera
-                    if self.active_camera_id == self.camera.id:
-                        try:
-                            self.video_frames_queue.put_nowait(CapturedFrame(self.camera,
-                                                                             frame_number,
-                                                                             snapshot_time,
-                                                                             frame,
-                                                                             SharedFunctions.get_recording_time(
-                                                                                 self.camera.start_of_capture,
-                                                                                 capture.get(cv2.CAP_PROP_POS_MSEC))))
-                        except Exception as e:
-                            print(SharedFunctions.get_exception_info(e))
-                            raise e
+                    try:
+                        self.video_frames_queue.put_nowait(CapturedFrame(self.camera,
+                                                                         frame_number,
+                                                                         snapshot_time,
+                                                                         frame,
+                                                                         SharedFunctions.get_recording_time(
+                                                                             self.camera.start_of_capture,
+                                                                             capture.get(cv2.CAP_PROP_POS_MSEC))))
+                    except Exception as e:
+                        print(SharedFunctions.get_exception_info(e))
+                        raise e
 
                     self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
                                                                            RecordScreenInfoOperation.SET,
@@ -203,7 +200,8 @@ class VideoRecorder(object):
                                                                    RecordScreenInfoOperation.SET,
                                                                    SharedFunctions.get_exception_info(ex))])
 
-        self.frame_dispatching = False
+        with self.frame_dispatching_lock:
+            self.frame_dispatching = False
         self.frame_dispatcher_thread.join()
         self.video_dispatcher_thread.join()
 
