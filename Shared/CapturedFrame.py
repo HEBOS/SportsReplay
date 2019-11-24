@@ -93,14 +93,14 @@ class SharedCapturedFrameHandler(object):
                 conn.send(shared_captured_frame)
             else:
                 conn.send(None)
-        except Exception as ex:
-            print(SharedFunctions.get_exception_info(ex))
         except EOFError:
             pass
         except socket.error as e:
             if e.errno != errno.EPIPE:
                 # Not a broken pipe
                 print(SharedFunctions.get_exception_info(e))
+        except Exception as ex:
+            raise ex
         finally:
             pass
 

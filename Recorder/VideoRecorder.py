@@ -33,7 +33,7 @@ class VideoRecorder(object):
         self.debugging = debugging
 
         #p = psutil.Process()
-        #p.cpu_affinity([1 + camera.id])
+        #p.cpu_affinity([0, 1, 2])
 
         self.capturing = False
         self.capture_lock = threading.Lock()
@@ -118,10 +118,13 @@ class VideoRecorder(object):
                     if total_frames % 10 == 0:
                         print("FRAMES GRABBED: {}".format(total_frames))
 
+                    # Check if the camera activity has changed
+                    self.check_active_detection()
+
                     # Detection candidate should be handled by Detector, that will send an active camera change
                     # message, short time after, so that a correct image in video_queue can be written to the stream
                     # Note that we are passing the copy of the image, to avoid it being freed by video maker process
-                    if detection_candidate:
+                    if detection_candidate and self.active_camera_id != self.camera.id:
                         captured_frame = CapturedFrame(self.camera,
                                                        frame_number,
                                                        snapshot_time,
@@ -132,16 +135,6 @@ class VideoRecorder(object):
 
                         self.ai_frames_queue.put_nowait(captured_frame)
 
-                    # Check if the camera activity has changed
-                    try:
-                        if self.detection_connection.poll():
-                            self.active_detection = self.detection_connection.recv()
-                            self.active_camera_id = self.active_detection.camera_id
-                    except Exception as ex:
-                        pass
-                    finally:
-                        pass
-
                     try:
                         self.video_frames_queue.put_nowait(CapturedFrame(self.camera,
                                                                          frame_number,
@@ -151,7 +144,7 @@ class VideoRecorder(object):
                                                                              self.camera.start_of_capture,
                                                                              capture.get(cv2.CAP_PROP_POS_MSEC))))
                     except Exception as e:
-                        print(SharedFunctions.get_exception_info(e))
+                        raise e
 
                     self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
                                                                            RecordScreenInfoOperation.SET,
@@ -206,7 +199,7 @@ class VideoRecorder(object):
         except socket.error as e:
             pass
         except Exception as ex:
-            print(ex)
+            pass
 
     def cv2error(self):
         self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,
@@ -227,4 +220,13 @@ class VideoRecorder(object):
                 captured_frame: CapturedFrame = q.get()
                 SharedCapturedFrameHandler.send_frame(conn, captured_frame, name_prefix)
 
-
+    def check_active_detection(self):
+        # Check if there is a message from Detector that active camera has changed
+        try:
+            if self.detection_connection.poll():
+                self.active_detection = self.detection_connection.recv()
+                self.active_camera_id = self.active_detection.camera_id
+        except Exception as ex:
+            raise ex
+        finally:
+            pass

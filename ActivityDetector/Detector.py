@@ -30,7 +30,7 @@ class Detector(object):
                  polygons: List[DefinedPolygon], screen_connection: connection.Connection,
                  debugging: bool, number_of_cameras: int):
         #p = psutil.Process()
-        #p.cpu_affinity([0])
+        #p.cpu_affinity([3])
         self.playground = playground
         self.ai_frame_connections = ai_frame_connections
         self.class_id = class_id
@@ -77,15 +77,18 @@ class Detector(object):
 
                         # We are stopping detection if we have reached the end of the queue for all cameras
                         if captured_frame is None:
-                            self.number_of_cameras_to_process -= 1
-                            if self.number_of_cameras_to_process <= 0:
-                                detecting = False
-                                break
-                        elif (captured_frame is not None) and captured_frame.camera.id == self.active_camera.id:
-                            captured_frame.release()
-                        elif (captured_frame is not None) and captured_frame.camera.id != self.active_camera.id:
+                            detecting = False
+                            break
+                        else:
                             # Run the AI detection, based on class id
+                            print("Detecting frame from camera {}".format(captured_frame.camera.id))
                             detections = net.detect(captured_frame.frame, True)
+                            self.total_detections += 1
+                            detections_per_second = (self.total_detections / (time.time() - self.detection_started))
+                            self.screen_connection.send(
+                                [RecordScreenInfoEventItem(RecordScreenInfo.AI_DETECTIONS_PER_SECOND,
+                                                           RecordScreenInfoOperation.SET,
+                                                           detections_per_second)])
 
                             # Convert detections into balls
                             balls = []
@@ -101,7 +104,7 @@ class Detector(object):
                                                            captured_frame.camera.id,
                                                            int(captured_frame.snapshot_time) +
                                                            captured_frame.frame_number / 10000,
-                                                           captured_frame.camera_time))
+                                                           captured_frame.timestamp))
 
                             # Some logging for debug session
                             if self.debugging:
@@ -112,13 +115,6 @@ class Detector(object):
                                     self.total_detections += 1
 
                             if len(balls) > 0:
-                                self.total_detections += 1
-                                detections_per_second = (self.total_detections / (time.time() - self.detection_started))
-                                self.screen_connection.send(
-                                    [RecordScreenInfoEventItem(RecordScreenInfo.AI_DETECTIONS_PER_SECOND,
-                                                               RecordScreenInfoOperation.SET,
-                                                               detections_per_second)])
-
                                 # We declare the examining camera as an active one,
                                 # if there is a ball in the area it covers, but the ball is not in protected area
                                 for ball in balls:
@@ -201,7 +197,7 @@ class Detector(object):
             except socket.error as e:
                 pass
             except Exception as ex:
-                print(ex)
+                pass
 
     @staticmethod
     def log_balls(ball_sizes: List[Detection]):

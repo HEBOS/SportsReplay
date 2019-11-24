@@ -27,7 +27,7 @@ from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 class Record(object):
     def __init__(self, hour: int, minute: int):
         #p = psutil.Process()
-        #p.cpu_affinity(0)
+        #p.cpu_affinity([0, 1, 2])
         self.config = Configuration()
         self.dispatching = True
         self.dumping_screen_information = True

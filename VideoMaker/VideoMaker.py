@@ -29,7 +29,7 @@ class VideoMaker(object):
                  polygons: List[DefinedPolygon], width: int, height: int, fps: int,
                  screen_connection: connection.Connection, debugging: bool):
         #p = psutil.Process()
-        #p.cpu_affinity([1])
+        #p.cpu_affinity([0, 1, 2])
         self.config = Configuration()
         self.playground = playground
         self.video_frame_connections = video_frame_connections
@@ -110,18 +110,17 @@ class VideoMaker(object):
                             # Delay rendering so that Detector can notify VideoMaker a bit earlier,
                             # before camera has switched
                             if self.active_detection is not None:
-                                while self.active_detection.camera_time < captured_frame.camera_time:
+                                p = 0
+                                while (captured_frame.timestamp - self.video_latency < time.time()) and \
+                                        self.video_making:
+                                    if p % 10 == 0:
+                                        print("Frame captured at {}. Waiting {} seconds".
+                                              format(captured_frame.timestamp, self.video_latency))
+                                        cv2.waitKey(10)
+                                    p += 1
                                     pass
 
-                            # Check if there is a message from Detector that active camera has changed
-                            try:
-                                if self.detection_connection.poll():
-                                    self.active_detection = self.detection_connection.recv()
-                                    self.active_camera_id = self.active_detection.camera_id
-                            except Exception as ex:
-                                pass
-                            finally:
-                                pass
+                            self.check_active_detection()
 
                             if captured_frame.camera.id == self.active_camera_id:
                                 if self.debugging:
@@ -155,7 +154,7 @@ class VideoMaker(object):
                                     self.video_making = False
                                 break
                 except Exception as ex:
-                    pass
+                    raise ex
 
             with self.grabing_frames_thread_interrupt_lock:
                 self.grabing_frames_thread_pending = False
@@ -186,7 +185,7 @@ class VideoMaker(object):
             except socket.error as e:
                 pass
             except Exception as ex:
-                SharedFunctions.get_exception_info(ex)
+                pass
 
     def grab_frames(self):
         last_job = 0
@@ -247,3 +246,13 @@ class VideoMaker(object):
         cv2.putText(captured_frame.frame, str(frame_info),
                     (10, 500), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 2, cv2.LINE_AA)
 
+    def check_active_detection(self):
+        # Check if there is a message from Detector that active camera has changed
+        try:
+            if self.detection_connection.poll():
+                self.active_detection = self.detection_connection.recv()
+                self.active_camera_id = self.active_detection.camera_id
+        except Exception as ex:
+            raise ex
+        finally:
+            pass
