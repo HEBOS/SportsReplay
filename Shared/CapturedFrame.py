@@ -68,12 +68,8 @@ class SharedCapturedFrameHandler(object):
                     return False, None
             else:
                 return False, None
-        except EOFError:
+        except Exception as ex:
             pass
-        except socket.error as e:
-            if e.errno != errno.EPIPE:
-                # Not a broken pipe
-                raise e
         finally:
             pass
         return False, None

@@ -114,5 +114,5 @@ class LogHandler(object):
                         HttpService.post(url=self.heart_beat_post_url,
                                          data=self.heart_beat.to_post_body())
                     except Exception as ex:
-                        print(ex)
+                        SharedFunctions.get_exception_info(ex)
                         pass

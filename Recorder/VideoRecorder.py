@@ -137,12 +137,8 @@ class VideoRecorder(object):
                         if self.detection_connection.poll():
                             self.active_detection = self.detection_connection.recv()
                             self.active_camera_id = self.active_detection.camera_id
-                    except EOFError:
+                    except Exception as ex:
                         pass
-                    except socket.error as e:
-                        if e.errno != errno.EPIPE:
-                            # Not a broken pipe
-                            raise e
                     finally:
                         pass
 
@@ -156,7 +152,6 @@ class VideoRecorder(object):
                                                                              capture.get(cv2.CAP_PROP_POS_MSEC))))
                     except Exception as e:
                         print(SharedFunctions.get_exception_info(e))
-                        raise e
 
                     self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
                                                                            RecordScreenInfoOperation.SET,
@@ -176,12 +171,6 @@ class VideoRecorder(object):
                                                                    "Expected ending {}. Ending at {}".
                                                                    format(time.gmtime(self.camera.end_of_capture),
                                                                           time.gmtime(time.time())))])
-        except EOFError:
-            pass
-        except socket.error as e:
-            if e.errno != errno.EPIPE:
-                # Not a broken pipe
-                raise e
         except cv2.error as e:
             self.capturing = False
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.VR_EXCEPTIONS,

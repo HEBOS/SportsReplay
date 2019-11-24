@@ -20,6 +20,7 @@ from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 from Shared.Configuration import Configuration
 from Shared.LogoRenderer import LogoRenderer
+from Shared.Detection import Detection
 
 
 class VideoMaker(object):
@@ -44,7 +45,7 @@ class VideoMaker(object):
 
         # We assume that the active camera is 1
         self.active_camera_id = 1
-        self.active_detection = None
+        self.active_detection: Detection = None
 
         self.time_format = self.config.common["time-format"]
         self.date_format = self.config.common["date-format"]
@@ -108,20 +109,17 @@ class VideoMaker(object):
                         if captured_frame is not None:
                             # Delay rendering so that Detector can notify VideoMaker a bit earlier,
                             # before camera has switched
-                            #while captured_frame.timestamp - self.video_latency < time.time():
-                            #    pass
+                            if self.active_detection is not None:
+                                while self.active_detection.camera_time < captured_frame.camera_time:
+                                    pass
 
                             # Check if there is a message from Detector that active camera has changed
                             try:
                                 if self.detection_connection.poll():
                                     self.active_detection = self.detection_connection.recv()
                                     self.active_camera_id = self.active_detection.camera_id
-                            except EOFError:
+                            except Exception as ex:
                                 pass
-                            except socket.error as e:
-                                if e.errno != errno.EPIPE:
-                                    # Not a broken pipe
-                                    raise e
                             finally:
                                 pass
 
@@ -156,12 +154,8 @@ class VideoMaker(object):
                                 with self.video_making_lock:
                                     self.video_making = False
                                 break
-                except EOFError:
+                except Exception as ex:
                     pass
-                except socket.error as e:
-                    if e.errno != errno.EPIPE:
-                        # Not a broken pipe
-                        raise e
 
             with self.grabing_frames_thread_interrupt_lock:
                 self.grabing_frames_thread_pending = False
@@ -173,7 +167,6 @@ class VideoMaker(object):
                                            RecordScreenInfoOperation.SET,
                                            "VideoMaker ended.")])
         except Exception as ex:
-            print(ex)
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.VM_EXCEPTIONS,
                                            RecordScreenInfoOperation.ADD,
@@ -193,7 +186,7 @@ class VideoMaker(object):
             except socket.error as e:
                 pass
             except Exception as ex:
-                print(ex)
+                SharedFunctions.get_exception_info(ex)
 
     def grab_frames(self):
         last_job = 0
@@ -226,7 +219,7 @@ class VideoMaker(object):
                                 with self.grabing_frames_thread_interrupt_lock:
                                     self.grabing_frames_thread_pending = False
         except Exception as ex:
-            print(ex)
+            SharedFunctions.get_exception_info(ex)
             with self.video_making_lock:
                 self.video_making = False
             with self.grabing_frames_thread_interrupt_lock:

@@ -116,10 +116,13 @@ class SharedFunctions(object):
             return False
 
     @staticmethod
-    def get_exception_info(ex: Exception) -> str:
+    def get_exception_info(ex) -> str:
+        inst = type(ex)
+        args = inst.args
+
         exc_type, exc_obj, exc_tb = sys.exc_info()
         file_name = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
-        return "{}, line {}\n{}".format(file_name, exc_tb.tb_lineno, ex)
+        return "{}, line {}\n{}\n{}\n{}".format(file_name, exc_tb.tb_lineno, ex, inst, args)
 
     @staticmethod
     def get_time_zone_offset():

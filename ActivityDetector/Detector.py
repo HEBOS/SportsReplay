@@ -100,7 +100,8 @@ class Detector(object):
                                                            detection.Confidence,
                                                            captured_frame.camera.id,
                                                            int(captured_frame.snapshot_time) +
-                                                           captured_frame.frame_number / 10000))
+                                                           captured_frame.frame_number / 10000,
+                                                           captured_frame.camera_time))
 
                             # Some logging for debug session
                             if self.debugging:
@@ -176,12 +177,6 @@ class Detector(object):
             self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                                                    RecordScreenInfoOperation.SET,
                                                                    "Detector finished working.")])
-        except EOFError:
-            pass
-        except socket.error as e:
-            if e.errno != errno.EPIPE:
-                # Not a broken pipe
-                raise e
         except Exception as ex:
             self.screen_connection.send(
                 [RecordScreenInfoEventItem(RecordScreenInfo.AI_EXCEPTIONS,
