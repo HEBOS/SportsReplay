@@ -4,7 +4,7 @@ from Shared.EasyTerminal import EasyTerminal
 
 
 class RecordScreenInfo(object):
-    LIVE_PROCESSES: int = 1
+    LIVE_WORKERS: int = 1
     AI_EXCEPTIONS: int = 2
     AI_IS_LIVE: int = 3
     AI_DETECTIONS_PER_SECOND: int = 4
@@ -34,7 +34,7 @@ class RecordScreenInfo(object):
             TerminalItem(terminal, 0, "-" * 50, 0),
             TerminalItem(terminal, 0, "Video Maker ", 0),
             TerminalItem(terminal, 0, "-" * 50, 0),
-            TerminalItem(terminal, self.LIVE_PROCESSES, "AI - Live Processes: ", 5),
+            TerminalItem(terminal, self.LIVE_WORKERS, "AI - Live Processes: ", 5),
             TerminalItem(terminal, self.AI_EXCEPTIONS, "AI - Exceptions: ", 5),
             TerminalItem(terminal, self.AI_IS_LIVE, "AI - Live: ", 5),
             TerminalItem(terminal, self.AI_DETECTIONS_PER_SECOND, "AI - Detections per second: ", 5),
@@ -71,7 +71,7 @@ class RecordScreenInfo(object):
     @staticmethod
     def from_enum(enum_value: int) -> str:
         if enum_value == 1:
-            return "LIVE_PROCESSES"
+            return "LIVE_WORKERS"
         if enum_value == 2:
             return "AI_EXCEPTIONS"
         if enum_value == 3:

@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 import cv2
-from multiprocessing import connection
 import time
 import numpy as np
-import threading
 import os
-import socket
-import errno
 import copy
-import psutil
+import multiprocessing as mp
+import threading
 from typing import List
-from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler
+from Shared.CapturedFrame import CapturedFrame
 from Shared.Camera import Camera
 from Shared.Detection import Detection
 from Shared.Linq import Linq
@@ -23,16 +20,17 @@ from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 
 
 class Detector(object):
-    def __init__(self, playground: int, ai_frame_connections: List[connection.Connection],
+    def __init__(self, playground: int,
+                 ai_frame_queue: mp.Queue, detection_queues: List[mp.Queue], screen_queue: mp.Queue,
                  class_id: int, network_config_path: str, network_weights_path: str,
                  coco_config_path: str, width: int, height: int,
-                 cameras: List[Camera], detection_connections: List[connection.Connection],
-                 polygons: List[DefinedPolygon], screen_connection: connection.Connection,
-                 debugging: bool, number_of_cameras: int):
-        #p = psutil.Process()
-        #p.cpu_affinity([3])
+                 cameras: List[Camera], polygons: List[DefinedPolygon], number_of_cameras: int,
+                 debugging: bool):
         self.playground = playground
-        self.ai_frame_connections = ai_frame_connections
+        self.ai_frame_queue = ai_frame_queue
+        self.detection_queues = detection_queues
+        self.screen_queue = screen_queue
+
         self.class_id = class_id
         self.network_config_path = network_config_path
         self.network_weights_path = network_weights_path
@@ -40,12 +38,11 @@ class Detector(object):
         self.width = width
         self.height = height
         self.cameras = cameras
-        self.detection_connections = detection_connections
         self.polygons = polygons
-        self.debugging = debugging
-        self.active_camera = cameras[0]
-        self.screen_connection = screen_connection
         self.number_of_cameras_to_process = number_of_cameras
+        self.debugging = debugging
+
+        self.active_camera = cameras[0]
 
         # Logger
         self.total_detections = 0
@@ -66,115 +63,112 @@ class Detector(object):
             warmed_up = False
             last_job = time.time()
             last_camera_swapping = time.time() - 2
-            detecting = True
-            while detecting:
+            while True:
                 # We only proceed, if there is anything in the active camera queue
-                for conn in self.ai_frame_connections:
-                    has_frame, captured_frame = SharedCapturedFrameHandler.get_frame(conn)
-                    if has_frame:
-                        last_job = time.time()
-                        warmed_up = True
+                if self.ai_frame_queue.qsize() > 0:
+                    captured_frame = self.ai_frame_queue.get()
+                    last_job = time.time()
+                    warmed_up = True
 
-                        # We are stopping detection if we have reached the end of the queue for all cameras
-                        if captured_frame is None:
-                            detecting = False
-                            break
+                    # We are stopping detection if we have reached the end of the queue for all cameras
+                    if captured_frame is not None:
+                        # Run the AI detection, based on class id
+                        print("Detecting frame from camera {}".format(captured_frame.camera.id))
+                        detections = net.detect(captured_frame.frame, True)
+                        self.total_detections += 1
+                        detections_per_second = (self.total_detections / (time.time() - self.detection_started))
+                        self.screen_queue.put_nowait(
+                            [RecordScreenInfoEventItem(RecordScreenInfo.AI_DETECTIONS_PER_SECOND,
+                                                       RecordScreenInfoOperation.SET,
+                                                       detections_per_second)])
+
+                        # Convert detections into balls
+                        balls = []
+                        for detection in detections:
+                            if detection.ClassID == self.class_id:
+                                balls.append(Detection(int(detection.Left),
+                                                       int(detection.Right),
+                                                       int(detection.Top),
+                                                       int(detection.Bottom),
+                                                       int(detection.Width),
+                                                       int(detection.Height),
+                                                       detection.Confidence,
+                                                       captured_frame.camera.id,
+                                                       int(captured_frame.snapshot_time) +
+                                                       captured_frame.frame_number / 10000,
+                                                       captured_frame.timestamp))
+
+                        # Some logging for debug session
+                        if self.debugging:
+                            if len(balls) == 1 and self.debugging:
+                                ball_sizes.append(balls[0])
                         else:
-                            # Run the AI detection, based on class id
-                            print("Detecting frame from camera {}".format(captured_frame.camera.id))
-                            detections = net.detect(captured_frame.frame, True)
-                            self.total_detections += 1
-                            detections_per_second = (self.total_detections / (time.time() - self.detection_started))
-                            self.screen_connection.send(
-                                [RecordScreenInfoEventItem(RecordScreenInfo.AI_DETECTIONS_PER_SECOND,
-                                                           RecordScreenInfoOperation.SET,
-                                                           detections_per_second)])
-
-                            # Convert detections into balls
-                            balls = []
-                            for detection in detections:
-                                if detection.ClassID == self.class_id:
-                                    balls.append(Detection(int(detection.Left),
-                                                           int(detection.Right),
-                                                           int(detection.Top),
-                                                           int(detection.Bottom),
-                                                           int(detection.Width),
-                                                           int(detection.Height),
-                                                           detection.Confidence,
-                                                           captured_frame.camera.id,
-                                                           int(captured_frame.snapshot_time) +
-                                                           captured_frame.frame_number / 10000,
-                                                           captured_frame.timestamp))
-
-                            # Some logging for debug session
-                            if self.debugging:
-                                if len(balls) == 1 and self.debugging:
-                                    ball_sizes.append(balls[0])
-                            else:
-                                if len(balls) > 0:
-                                    self.total_detections += 1
-
                             if len(balls) > 0:
-                                # We declare the examining camera as an active one,
-                                # if there is a ball in the area it covers, but the ball is not in protected area
-                                for ball in balls:
-                                    if Linq(self.polygons).any(
+                                self.total_detections += 1
+
+                        if len(balls) > 0:
+                            # We declare the examining camera as an active one,
+                            # if there is a ball in the area it covers, but the ball is not in protected area
+                            for ball in balls:
+                                if Linq(self.polygons).any(
+                                        lambda p: p.camera_id == ball.camera_id and
+                                        p.detect and p.contains_ball(ball)) and \
+                                        not Linq(self.polygons).any(
                                             lambda p: p.camera_id == ball.camera_id and
-                                            p.detect and p.contains_ball(ball)) and \
-                                            not Linq(self.polygons).any(
-                                                lambda p: p.camera_id == ball.camera_id and
-                                                (not p.detect) and p.contains_ball(ball)):
+                                            (not p.detect) and p.contains_ball(ball)):
 
-                                        if self.active_camera.id != ball.camera_id:
-                                            # Change active camera, but only after 1 second
-                                            if time.time() - last_camera_swapping > 1:
-                                                self.active_camera = self.cameras[ball.camera_id - 1]
-                                                last_camera_swapping = time.time()
+                                    if self.active_camera.id != ball.camera_id:
+                                        # Change active camera, but only after 1 second
+                                        if time.time() - last_camera_swapping > 1:
+                                            self.active_camera = self.cameras[ball.camera_id - 1]
+                                            last_camera_swapping = time.time()
 
-                                                # Send message to VideoMaker process
-                                                for detect_connection in self.detection_connections:
-                                                    detect_connection.send(copy.copy(ball))
+                                            # Send message to VideoMaker process
+                                            for detection_queue in self.detection_queues:
+                                                detection_queue.put_nowait(copy.copy(ball))
 
-                                                self.screen_connection.send(
-                                                    [RecordScreenInfoEventItem(RecordScreenInfo.VR_ACTIVE_CAMERA,
-                                                                               RecordScreenInfoOperation.SET,
-                                                                               ball.camera_id),
-                                                     RecordScreenInfoEventItem(RecordScreenInfo.AI_IS_LIVE,
-                                                                               RecordScreenInfoOperation.SET,
-                                                                               "yes")]
-                                                )
-                                                if self.debugging:
-                                                    debug_thread = \
-                                                        threading.Thread(target=self.draw_debug_info,
-                                                                         args=(copy.deepcopy(captured_frame), ball))
-                                                    debug_thread.start()
-                                        break
+                                            self.screen_queue.put_nowait(
+                                                [RecordScreenInfoEventItem(RecordScreenInfo.VR_ACTIVE_CAMERA,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           ball.camera_id),
+                                                 RecordScreenInfoEventItem(RecordScreenInfo.AI_IS_LIVE,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           "yes")]
+                                            )
+                                            if self.debugging:
+                                                debug_thread = \
+                                                    threading.Thread(target=self.draw_debug_info,
+                                                                     args=(copy.deepcopy(captured_frame), ball))
+                                                debug_thread.start()
+                                    break
 
-                                    # Preserve information about last detection, no matter,
-                                    # if we changed the camera or not
-                                    camera = self.cameras[captured_frame.camera.id - 1]
-                                    camera.last_detection = time.time()
-                            captured_frame.release()
+                                # Preserve information about last detection, no matter,
+                                # if we changed the camera or not
+                                camera = self.cameras[captured_frame.camera.id - 1]
+                                camera.last_detection = time.time()
+                        captured_frame.release()
                     else:
-                        # This ensures, that this process exits, if it has processed at least one frame,
-                        # and hasn't got any other during the next 5 seconds.
-                        if warmed_up:
-                            if time.time() - last_job > 10:
-                                self.screen_connection.send(
-                                    [RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
-                                                               RecordScreenInfoOperation.SET,
-                                                               "Detector - Exit due to no activity.")])
-                                detecting = False
-                                break
+                        break
+                else:
+                    # This ensures, that this process exits, if it has processed at least one frame,
+                    # and hasn't got any other during the next 5 seconds.
+                    if warmed_up:
+                        if time.time() - last_job > 10:
+                            self.screen_queue.put_nowait(
+                                [RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
+                                                           RecordScreenInfoOperation.SET,
+                                                           "Detector - Exit due to no activity.")])
+                            break
 
             if self.debugging:
                 Detector.log_balls(ball_sizes)
 
-            self.screen_connection.send([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
-                                                                   RecordScreenInfoOperation.SET,
-                                                                   "Detector finished working.")])
+            self.screen_queue.put_nowait([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
+                                                                    RecordScreenInfoOperation.SET,
+                                                                    "Detector finished working.")])
+
         except Exception as ex:
-            self.screen_connection.send(
+            self.screen_queue.put_nowait(
                 [RecordScreenInfoEventItem(RecordScreenInfo.AI_EXCEPTIONS,
                                            RecordScreenInfoOperation.ADD,
                                            1),
@@ -185,19 +179,6 @@ class Detector(object):
                                            RecordScreenInfoOperation.SET,
                                            SharedFunctions.get_exception_info(ex))]
             )
-        finally:
-            try:
-                SharedFunctions.close_connection(self.screen_connection)
-                for conn in self.detection_connections:
-                    SharedFunctions.close_connection(conn)
-                for conn in self.ai_frame_connections:
-                    SharedFunctions.close_connection(conn)
-            except EOFError:
-                pass
-            except socket.error as e:
-                pass
-            except Exception as ex:
-                pass
 
     @staticmethod
     def log_balls(ball_sizes: List[Detection]):

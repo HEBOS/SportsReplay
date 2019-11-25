@@ -8,12 +8,12 @@ import cv2
 
 class DarknetDetector(object):
     def __init__(self, cfg_path: str, weights_path: str, classnames_path: str, original_image_size: tuple):
-        #self._net = load_net_custom(c_char_p(cfg_path.encode("ascii")),
-        #                            c_char_p(weights_path.encode("ascii")),
-        #                            0, 1)
-        self._net = load_net(c_char_p(cfg_path.encode("ascii")),
-                             c_char_p(weights_path.encode("ascii")),
-                             0)
+        self._net = load_net_custom(c_char_p(cfg_path.encode("ascii")),
+                                    c_char_p(weights_path.encode("ascii")),
+                                    0, 1)
+        #self._net = load_net(c_char_p(cfg_path.encode("ascii")),
+        #                     c_char_p(weights_path.encode("ascii")),
+        #                     0)
         self._meta = load_meta(c_char_p(classnames_path.encode("ascii")))
         self.network_width = lib.network_width(self._net)
         self.network_height = lib.network_height(self._net)
