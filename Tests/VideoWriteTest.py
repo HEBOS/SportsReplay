@@ -29,23 +29,24 @@ class VideoWriteTest(object):
                          "! queue " \
                          "! rtph264depay " \
                          "! h264parse " \
-                         "! omxh264dec " \
-                         "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
-                         "! video/x-raw,framerate={fps}/1 " \
+                         "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
                          "! nvvidconv " \
-                         "! video/x-raw(memory:NVMM),format=BGRx " \
+                         "! video/x-raw(memory:NVMM),format=BGRx,width={width},height={height} " \
                          "! queue " \
                          "! nvvidconv " \
                          "! video/x-raw,format=BGRx" \
                          "! videoconvert " \
                          "! video/x-raw,format=BGR " \
-                         "! appsink sync=0".format(location=video_addresses[0],
+                         "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
+                         "! video/x-raw,framerate={fps}/1 " \
+                         "! appsink sync=true".format(location=video_addresses[0],
                                                    fps=fps,
                                                    width=width,
                                                    height=height,
                                                    user="sportsreplay",
                                                    password="Spswd001.",
                                                    latency=2000)
+
         output_pipeline = "appsrc " \
                           "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \
                           "! videoconvert " \
