@@ -105,7 +105,9 @@ class VideoRecorder(object):
                         self.ai_frame_queue.put_nowait(sch.get_shared_frame(captured_frame,
                                                                             self.AI))
 
-                    dddf = cv2.CAP_PROP_POS_MSEC
+                    if self.debugging:
+                        print("TOTAL FRAMES GRABBED {}".format(total_frames))
+
                     self.video_frame_queue.put_nowait(
                         sch.get_shared_frame(CapturedFrame(self.camera,
                                                            frame_number,

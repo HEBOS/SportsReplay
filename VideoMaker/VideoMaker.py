@@ -91,8 +91,8 @@ class VideoMaker(object):
                                 while self.is_video_ahead(shared_captured_frame, detection_loop_wait_started):
                                     self.check_active_detection()
                                     if not detection_loop_warning_displayed:
-                                        print("Frame captured at {}. Waiting {} seconds".
-                                              format(shared_captured_frame.timestamp, self.video_latency))
+                                        print("Frame captured at {}. Waiting 2 seconds".
+                                              format(shared_captured_frame.camera_time))
                                         detection_loop_warning_displayed = True
                                         cv2.waitKey(10)
                                     p += 1

@@ -127,7 +127,7 @@ class Record(object):
         output_video = SharedFunctions.get_output_video(video_making_path, playground, self.planned_start_time)
 
         # Define the queues, for the communication between the threads
-        ai_frame_queue = mp.Queue(10)
+        ai_frame_queue = mp.Queue(20)
         video_frame_queue = mp.Queue(200)
         screen_queues = []
         detection_queues = []
@@ -154,7 +154,7 @@ class Record(object):
                               "! video/x-raw,format=BGR " \
                               "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
                               "! video/x-raw,framerate={fps}/1 " \
-                              "! appsink sync=false".format(location=os.path.normpath(r"{}".format(v)),
+                              "! appsink sync=true".format(location=os.path.normpath(r"{}".format(v)),
                                                             fps=fps,
                                                             width=width,
                                                             height=height,
