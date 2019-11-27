@@ -65,7 +65,7 @@ class LogHandler(object):
             error_data = {'playgroundId': self.playground,
                           'plannedStartTime': SharedFunctions.to_post_time(self.planned_start_time),
                           'error': message}
-            HttpService.post(url=self.log_post_url, data=jsonpickle.encode(error_data))
+            #HttpService.post(url=self.log_post_url, data=jsonpickle.encode(error_data))
             pass
         except:
             pass
@@ -102,7 +102,7 @@ class LogHandler(object):
     def post(self):
         last_post = time.time()
         while self.posting:
-            if time.time() - last_post >= 5 or self.force_post_complete:
+            if time.time() - last_post >= 100 or self.force_post_complete:
 
                 # This is to force exit, after stop_posting has been requested
                 if self.force_post_complete:
@@ -111,8 +111,9 @@ class LogHandler(object):
                 last_post = time.time()
                 with self.heart_beat_lock:
                     try:
-                        HttpService.post(url=self.heart_beat_post_url,
-                                         data=self.heart_beat.to_post_body())
+                        #HttpService.post(url=self.heart_beat_post_url,
+                        #                 data=self.heart_beat.to_post_body())
+                        pass
                     except Exception as ex:
                         SharedFunctions.get_exception_info(ex)
                         pass

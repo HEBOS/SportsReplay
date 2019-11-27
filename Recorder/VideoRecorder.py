@@ -8,13 +8,16 @@ import multiprocessing as mp
 from Shared.SharedFunctions import SharedFunctions
 from Shared.CvFunctions import CvFunctions
 from Shared.Camera import Camera
-from Shared.CapturedFrame import CapturedFrame
+from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler as sch
 from Shared.RecordScreenInfo import RecordScreenInfo
 from Shared.RecordScreenInfoEventItem import RecordScreenInfoEventItem
 from Shared.RecordScreenInfoOperation import RecordScreenInfoOperation
 
 
 class VideoRecorder(object):
+    VIDEO: str = "video"
+    AI: str = "ai"
+
     def __init__(self, camera: Camera, ai_frame_queue: mp.Queue, video_frame_queue: mp.Queue, screen_queue: mp.Queue,
                  detection_queue: mp.Queue, debugging: bool):
         self.camera = camera
@@ -84,9 +87,6 @@ class VideoRecorder(object):
                     # Get the frame itself
                     ref, frame = capture.retrieve()
 
-                    if total_frames % 10 == 0:
-                        print("FRAMES GRABBED: {}".format(total_frames))
-
                     # Check if the camera activity has changed
                     self.check_active_detection()
 
@@ -102,23 +102,31 @@ class VideoRecorder(object):
                                                            self.camera.start_of_capture,
                                                            capture.get(cv2.CAP_PROP_POS_MSEC)))
 
-                        self.ai_frame_queue.put_nowait(captured_frame)
+                        self.ai_frame_queue.put_nowait(sch.get_shared_frame(captured_frame,
+                                                                            self.AI))
 
-                    self.video_frame_queue.put_nowait(CapturedFrame(self.camera,
-                                                                    frame_number,
-                                                                    snapshot_time,
-                                                                    frame,
-                                                                    SharedFunctions.get_recording_time(
-                                                                        self.camera.start_of_capture,
-                                                                        capture.get(cv2.CAP_PROP_POS_MSEC))))
+                    dddf = cv2.CAP_PROP_POS_MSEC
+                    self.video_frame_queue.put_nowait(
+                        sch.get_shared_frame(CapturedFrame(self.camera,
+                                                           frame_number,
+                                                           snapshot_time,
+                                                           frame,
+                                                           SharedFunctions.get_recording_time(
+                                                               self.camera.start_of_capture,
+                                                               capture.get(
+                                                                   cv2.CAP_PROP_POS_MSEC))), self.VIDEO))
 
-                self.screen_queue.put_nowait([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
-                                                                        RecordScreenInfoOperation.SET,
-                                                                        self.camera.id),
-                                              RecordScreenInfoEventItem(RecordScreenInfo.VR_QUEUE_COUNT,
-                                                                        RecordScreenInfoOperation.SET,
-                                                                        self.video_frame_queue.qsize())
-                                              ])
+                if total_frames % (self.camera.fps * 2) == 0:
+                    self.screen_queue.put_nowait([RecordScreenInfoEventItem(RecordScreenInfo.VR_HEART_BEAT,
+                                                                            RecordScreenInfoOperation.SET,
+                                                                            self.camera.id),
+                                                  RecordScreenInfoEventItem(RecordScreenInfo.VR_QUEUE_COUNT,
+                                                                            RecordScreenInfoOperation.SET,
+                                                                            self.video_frame_queue.qsize()),
+                                                 RecordScreenInfoEventItem(RecordScreenInfo.AI_QUEUE_COUNT,
+                                                                           RecordScreenInfoOperation.SET,
+                                                                           self.ai_frame_queue.qsize())
+                                                  ])
 
             self.screen_queue.put_nowait([RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                                                     RecordScreenInfoOperation.SET,

@@ -6,7 +6,7 @@ from typing import List
 import os
 import gc
 import multiprocessing as mp
-from Shared.CapturedFrame import CapturedFrame
+from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler as sch, SharedCapturedFrame
 from Shared.SharedFunctions import SharedFunctions
 from Shared.CvFunctions import CvFunctions
 from Shared.DefinedPolygon import DefinedPolygon
@@ -68,39 +68,43 @@ class VideoMaker(object):
                                       self.fps,
                                       (self.width, self.height),
                                       True)
+        total_time_spent_on_writes = 0
         try:
             i = 0
             written_frames = 0
             warmed_up = False
             last_job = time.time()
-
             while True:
                 try:
                     if self.video_frame_queue.qsize() > 0:
-                        captured_frame = self.video_frame_queue.get()
+                        shared_captured_frame: SharedCapturedFrame = self.video_frame_queue.get()
                         i += 1
-                        self.screen_queue.put_nowait([RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
-                                                                                RecordScreenInfoOperation.SET,
-                                                                                "yes"),
-                                                     RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
-                                                                               RecordScreenInfoOperation.SET,
-                                                                               self.video_frame_queue.qsize())])
-                        if captured_frame is not None:
+                        if shared_captured_frame is not None:
                             # Delay rendering so that Detector can notify VideoMaker a bit earlier,
                             # before camera has switched
                             if self.active_detection is not None:
+
                                 p = 0
-                                while captured_frame.timestamp - self.video_latency < time.time():
-                                    if p % 10 == 0:
+                                detection_loop_wait_started = time.time()
+                                detection_loop_warning_displayed = False
+
+                                while self.is_video_ahead(shared_captured_frame, detection_loop_wait_started):
+                                    self.check_active_detection()
+                                    if not detection_loop_warning_displayed:
                                         print("Frame captured at {}. Waiting {} seconds".
-                                              format(captured_frame.timestamp, self.video_latency))
+                                              format(shared_captured_frame.timestamp, self.video_latency))
+                                        detection_loop_warning_displayed = True
                                         cv2.waitKey(10)
                                     p += 1
                                     pass
 
                             self.check_active_detection()
 
-                            if captured_frame.camera.id == self.active_camera_id:
+                            if shared_captured_frame.camera.id == self.active_camera_id:
+                                write_started = time.time()
+                                # get frame from shared memory
+                                captured_frame = sch.get_frame(shared_captured_frame)
+
                                 if self.debugging:
                                     self.draw_debug_info(captured_frame)
                                 LogoRenderer.draw_logo(captured_frame.frame,
@@ -108,17 +112,28 @@ class VideoMaker(object):
                                                        self.date_format,
                                                        self.time_format,
                                                        captured_frame.camera_time)
-
                                 self.writer.write(captured_frame.frame)
+                                total_time_spent_on_writes += time.time() - write_started
                                 written_frames += 1
                                 captured_frame.release()
                                 if captured_frame.frame_number % self.fps == 0:
                                     gc.collect()
 
-                                self.screen_queue.put_nowait(
-                                    [RecordScreenInfoEventItem(RecordScreenInfo.VM_WRITTEN_FRAMES,
-                                                               RecordScreenInfoOperation.SET,
-                                                               written_frames)])
+                                if written_frames % (self.fps * 2) == 0:
+                                    self.screen_queue.put_nowait(
+                                        [RecordScreenInfoEventItem(RecordScreenInfo.VM_IS_LIVE,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   "yes"),
+                                         RecordScreenInfoEventItem(RecordScreenInfo.VM_QUEUE_COUNT,
+                                                                   RecordScreenInfoOperation.SET,
+                                                                   self.video_frame_queue.qsize()),
+                                         RecordScreenInfoEventItem(
+                                             RecordScreenInfo.VM_WRITTEN_FRAMES,
+                                             RecordScreenInfoOperation.SET,
+                                             written_frames)]
+                                    )
+                            else:
+                                sch.release(shared_captured_frame)
                         else:
                             break
                     else:
@@ -129,13 +144,15 @@ class VideoMaker(object):
                                 break
                 except Exception as ex:
                     raise ex
-
             self.writer.release()
             self.screen_queue.put_nowait(
                 [RecordScreenInfoEventItem(RecordScreenInfo.CURRENT_TASK,
                                            RecordScreenInfoOperation.SET,
                                            "VideoMaker ended.")])
+            print("TOTAL TIME SPENT ON WRITES {}".format(total_time_spent_on_writes))
         except Exception as ex:
+            print("TOTAL TIME SPENT ON WRITES {}".format(total_time_spent_on_writes))
+            print("ERROR OCCURED {}".format(ex))
             self.screen_queue.put_nowait(
                 [RecordScreenInfoEventItem(RecordScreenInfo.VM_EXCEPTIONS,
                                            RecordScreenInfoOperation.ADD,
@@ -182,3 +199,7 @@ class VideoMaker(object):
             raise ex
         finally:
             pass
+
+    def is_video_ahead(self, shared_captured_frame: SharedCapturedFrame, detection_loop_wait_started: time):
+        return time.mktime(shared_captured_frame.camera_time) > self.active_detection.camera_time and \
+               (time.time() - detection_loop_wait_started) < 2

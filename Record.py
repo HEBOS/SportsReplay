@@ -11,6 +11,7 @@ from Shared.SharedFunctions import SharedFunctions
 from Recorder.VideoRecorder import VideoRecorder
 from ActivityDetector.Detector import Detector
 from Shared.Camera import Camera
+from Shared.CapturedFrame import SharedCapturedFrameHandler as sch, SharedCapturedFrame
 from VideoMaker.VideoMaker import VideoMaker
 from Shared.DefinedPolygon import DefinedPolygon
 from Uploaders.FtpUploader import FtpUploader
@@ -56,10 +57,10 @@ class Record(object):
 
     @staticmethod
     def start_video_making(playground: int, video_frame_queue: mp.Queue, screen_queue: mp.Queue,
-                           detection_queue: mp.Queue, output_video: str, latency: float, polygons: List[DefinedPolygon],
-                           width: int, height: int, fps: int, debugging: bool):
-        video_maker = VideoMaker(playground, video_frame_queue, screen_queue, detection_queue, output_video, latency,
-                                 polygons, width, height, fps, debugging)
+                           detection_queue: mp.Queue, output_video: str, video_latency: float,
+                           polygons: List[DefinedPolygon], width: int, height: int, fps: int, debugging: bool):
+        video_maker = VideoMaker(playground, video_frame_queue, screen_queue, detection_queue, output_video,
+                                 video_latency, polygons, width, height, fps, debugging)
         video_maker.start()
 
     def start(self, debugging: bool):
@@ -128,7 +129,7 @@ class Record(object):
         # Define the queues, for the communication between the threads
         ai_frame_queue = mp.Queue(10)
         video_frame_queue = mp.Queue(200)
-        screen_queue = mp.Queue(1000)
+        screen_queues = []
         detection_queues = []
 
         cameras = []
@@ -142,6 +143,7 @@ class Record(object):
                               "! qtdemux " \
                               "! queue " \
                               "! h264parse " \
+                              "! h264parse " \
                               "! nvv4l2decoder enable-max-performance=1 drop-frame-interval=1 " \
                               "! nvvidconv " \
                               "! video/x-raw(memory:NVMM),format=BGRx,width={width},height={height} " \
@@ -150,13 +152,13 @@ class Record(object):
                               "! video/x-raw,format=BGRx" \
                               "! videoconvert " \
                               "! video/x-raw,format=BGR " \
-                              "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
-                              "! capsfilter caps='video/x-raw,framerate={fps}/1' " \
-                              "! appsink sync=0".format(location=os.path.normpath(r"{}".format(v)),
-                                                        fps=fps,
-                                                        width=width,
-                                                        height=height,
-                                                        latency=latency)
+                              "! videorate max-rate={fps} drop-only=true average-period=5000000 " \
+                              "! video/x-raw,framerate={fps}/1 " \
+                              "! appsink sync=false".format(location=os.path.normpath(r"{}".format(v)),
+                                                            fps=fps,
+                                                            width=width,
+                                                            height=height,
+                                                            latency=latency)
             else:
                 source_path = "rtspsrc location={location} latency={latency} " \
                               "user-id={user} user-pw={password} " \
@@ -190,6 +192,10 @@ class Record(object):
             detection_queue = mp.Queue(10)
             detection_queues.append(detection_queue)
 
+            # Add separate screen queue
+            screen_queue = mp.Queue(2000)
+            screen_queues.append(screen_queue)
+
             # Create recording thread
             processes.append(mp.Process(target=self.start_single_camera,
                                         args=(camera, ai_frame_queue, video_frame_queue, screen_queue,
@@ -198,17 +204,22 @@ class Record(object):
         # Add one more queue which will send detections from Detector to VideoMaker
         detection_queues.append(mp.Queue())
 
+        detection_screen_queue = mp.Queue(2000)
+        screen_queues.append(detection_screen_queue)
+
         # Create activity detection thread
         processes.append(mp.Process(target=self.start_activity_detection,
-                                    args=(playground, ai_frame_queue, detection_queues, screen_queue, class_id,
-                                          network_config, network_weights, coco_config, width, height, cameras,
-                                          polygons,
-                                          len(video_addresses), debugging)))
+                                    args=(playground, ai_frame_queue, detection_queues, detection_screen_queue,
+                                          class_id, network_config, network_weights, coco_config, width, height,
+                                          cameras, polygons, len(video_addresses), debugging)))
+
+        video_screen_queue = mp.Queue(2000)
+        screen_queues.append(video_screen_queue)
 
         # Create video rendering thread
         processes.append(mp.Process(target=self.start_video_making,
-                                    args=(playground, video_frame_queue, screen_queue,
-                                          detection_queues[len(detection_queues) - 1], output_video, latency,
+                                    args=(playground, video_frame_queue, video_screen_queue,
+                                          detection_queues[len(detection_queues) - 1], output_video, video_latency,
                                           polygons, width, height, fps, debugging)))
 
         # Start the processes
@@ -222,7 +233,7 @@ class Record(object):
         self.screen_info.refresh()
 
         # Run information thread
-        dump_information_thread = threading.Thread(target=self.dump_screen_information, args=(screen_queue,))
+        dump_information_thread = threading.Thread(target=self.dump_screen_information, args=(screen_queues,))
         dump_information_thread.start()
 
         try:
@@ -268,7 +279,7 @@ class Record(object):
             self.logger.info(RecordScreenInfoEventItem(RecordScreenInfo.COMPLETED,
                                                        RecordScreenInfoOperation.SET,
                                                        ""))
-            # Stop threads
+            # Stop reporting threads
             with self.dumping_screen_information_lock:
                 self.dumping_screen_information = False
             dump_information_thread.join()
@@ -284,6 +295,9 @@ class Record(object):
                                                            .format(session_path)))
 
                 self.files_cleanup(session_path, streaming_path, video_making_path)
+        finally:
+            sch.empty_queue(ai_frame_queue)
+            sch.empty_queue(video_frame_queue)
 
     @staticmethod
     def files_cleanup(session_path: str, streaming_path: str, video_making_path: str):
@@ -291,7 +305,7 @@ class Record(object):
         shutil.rmtree(streaming_path)
         shutil.rmtree(video_making_path)
 
-    def dump_screen_information(self, screen_queue: mp.Queue):
+    def dump_screen_information(self, screen_queues: List[mp.Queue]):
         dumping_screen_information = True
         while dumping_screen_information:
             with self.dumping_screen_information_lock:
@@ -299,22 +313,23 @@ class Record(object):
 
             try:
                 # If there is any incoming message
-                if screen_queue.qsize() > 0:
-                    # Receive the message
-                    events: List[RecordScreenInfoEventItem] = screen_queue.get()
+                for screen_queue in screen_queues:
+                    if screen_queue.qsize() > 0:
+                        # Receive the message
+                        events: List[RecordScreenInfoEventItem] = screen_queue.get()
 
-                    for information in events:
-                        if information.operation == RecordScreenInfoOperation.ADD:
-                            self.screen_info.increment_item_value(information.type, information.value)
-                        else:
-                            self.screen_info.set_item_value(information.type, information.value)
+                        for information in events:
+                            if information.operation == RecordScreenInfoOperation.ADD:
+                                self.screen_info.increment_item_value(information.type, information.value)
+                            else:
+                                self.screen_info.set_item_value(information.type, information.value)
 
-                        if information.type == RecordScreenInfo.ERROR_LOG:
-                            self.logger.error(information)
-                        else:
-                            self.logger.info(information)
-                else:
-                    time.sleep(0.01)
+                            if information.type == RecordScreenInfo.ERROR_LOG:
+                                self.logger.error(information)
+                            else:
+                                self.logger.info(information)
+                    else:
+                        time.sleep(0.01)
             finally:
                 pass
 

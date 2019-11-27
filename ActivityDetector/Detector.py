@@ -7,7 +7,7 @@ import copy
 import multiprocessing as mp
 import threading
 from typing import List
-from Shared.CapturedFrame import CapturedFrame
+from Shared.CapturedFrame import CapturedFrame, SharedCapturedFrameHandler as sch
 from Shared.Camera import Camera
 from Shared.Detection import Detection
 from Shared.Linq import Linq
@@ -66,12 +66,13 @@ class Detector(object):
             while True:
                 # We only proceed, if there is anything in the active camera queue
                 if self.ai_frame_queue.qsize() > 0:
-                    captured_frame = self.ai_frame_queue.get()
+                    shared_captured_frame = self.ai_frame_queue.get()
                     last_job = time.time()
                     warmed_up = True
 
                     # We are stopping detection if we have reached the end of the queue for all cameras
-                    if captured_frame is not None:
+                    if shared_captured_frame is not None:
+                        captured_frame = sch.get_frame(shared_captured_frame)
                         # Run the AI detection, based on class id
                         print("Detecting frame from camera {}".format(captured_frame.camera.id))
                         detections = net.detect(captured_frame.frame, True)

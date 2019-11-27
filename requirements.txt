@@ -26,7 +26,7 @@ urllib3==1.25.6
 protobuf==3.9.1
 setuptools==41.2.0
 six==1.12.0
-numpy==1.17.0
+numpy==1.17.4
 psutil==5.6.5
 pympler==0.7
 mem_top==0.1.6
@@ -44,5 +44,4 @@ enum34==1.1.6
 python-dateutil==2.8.0
 freetype-py
 pipeproxy==0.7
-shared-ndarray==1.1.1
-lmdb==0.98
+SharedArray==3.2.0
