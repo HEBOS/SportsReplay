@@ -2,7 +2,7 @@
 
 ## Naming Convention
 
-All device attributes should be saved to the [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0).
+All device attributes should be saved to the [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit?usp=sharing).
   
 
 -   Set WiFi Network SSID to __sports-replay-wifi-X__, where X is the next available Sports Replay WiFi router number in client's building
@@ -24,7 +24,7 @@ Create The Public Key
     Do not provide any passphrase, otherwise you won't be getting passwordless login.
 
 ### Remote Computer - Copying The Public Key
-`ssh-copy-id -i ~/.ssh/id_rsa.pub root@78.46.214.162`
+`ssh-copy-id -i ~/.ssh/id_rsa.pub root@IP_ADDRESS_OF_YOUR_SERVER`
 
     You will need to provide root password for VPS.
 
@@ -49,7 +49,7 @@ Paste the following content in it (replace __XXXX__ with the next available VPS 
     
     [Service]
     Environment="AUTOSSH_GATETIME=0"
-    ExecStart=/usr/bin/autossh -M 0 -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -nN -R XXXX:localhost:22 root@78.46.214.162
+    ExecStart=/usr/bin/autossh -M 0 -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -nN -R XXXX:localhost:22 root@IP_ADDRESS_OF_YOUR_SERVER
     
     [Install]
     WantedBy=multi-user.target
@@ -72,7 +72,7 @@ Reboot
 
 Open a separate terminal and use the following commands.
 
-`ssh root@78.46.214.162`
+`ssh root@IP_ADDRESS_OF_YOUR_SERVER`
 
 `netstat -tulpn | grep LISTEN`
 
@@ -80,11 +80,11 @@ Open a separate terminal and use the following commands.
 
 For Jetson (replace __XXXX with__ previously assigned VPS port.)
 
-`ssh sportsreplay@78.46.214.162 -p XXXX`
+`ssh sportsreplay@IP_ADDRESS_OF_YOUR_SERVER -p XXXX`
 
 For Raspberry Pi (replace __XXXX with__ previously assigned VPS port.)
 
-`ssh pi@78.46.214.162 -p XXXX`
+`ssh pi@IP_ADDRESS_OF_YOUR_SERVER -p XXXX`
 
 
 ## Preventing SSH to Timeout
@@ -111,3 +111,4 @@ If you want to start gui, while it is currently disabled, run:
 
 ## Installing Memory Monitoring Utility
 'sudo pip3 install jetson-stats'
+

@@ -12,12 +12,12 @@ source_path = "filesrc location={location} latency=2000 " \
                               "! videoconvert " \
                               "! videorate skip-to-first=1 qos=0 average-period=0000000000 max-rate={fps} " \
                               "! queue " \
-                              "! appsink".format(location="/home/sportsreplay/GitHub/sports-replay-hrvoje/videos/test-video-1.mp4",
+                              "! appsink".format(location="/home/sportsreplay/GitHub/sports-replay-local/videos/test-video-1.mp4",
                                                  fps=16,
                                                  width=1280,
                                                  height=720,
                                                  user="sportsreplay",
-                                                 password="Spswd001.")
+                                                 password="PASSWORD_HERE")
 
 output_pipeline = "appsrc " \
                   "! capsfilter caps='video/x-raw,format=I420,framerate={fps}/1' " \

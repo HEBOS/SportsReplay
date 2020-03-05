@@ -2,7 +2,7 @@ import cv2
 import time
 
 start = time.time()
-image = cv2.imread('/home/sportsreplay/GitHub/sports-replay-hrvoje/ActivityDetector/SampleImages/frame_1564827634_0001.jpg')
+image = cv2.imread('/home/sportsreplay/GitHub/sports-replay-local/ActivityDetector/SampleImages/frame_1564827634_0001.jpg')
 
 
 output_pipeline = "appsrc ! nvjpegenc ! \"image/jpeg\" ! filesink location=videotestsrc-frame.jpg"

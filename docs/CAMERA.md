@@ -8,9 +8,9 @@
 
     System Settings -> Basic Information
  
-    - Device Name to state sr-camera-X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
+    - Device Name to state sr-camera-X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit?usp=sharing)
     
-    - Device No. to state X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
+    - Device No. to state X, where X is the next ID of the camera, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit?usp=sharing)
     
     System Settings -> Time Settings
 
@@ -21,9 +21,9 @@
         
     Network -> Basic Settings -> WLAN
     
-    - Set IP address to your preference, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
+    - Set IP address to your preference, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit?usp=sharing)
     - Do not forget to add camera MAC address to the router reservation table, and assign ip address assigned above 
-    - Set Default Gateway to point to IP address of the router, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0)
+    - Set Default Gateway to point to IP address of the router, as documented in [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit?usp=sharing)
     - Set primary DNS to 8.8.8.8
     
     Network -> Advanced Network -> WiFi
@@ -39,7 +39,7 @@
     
     System - User Management
     
-    - Add "sportsreplay" user for RTSP authentication, and  make sure to put the same password to [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit#gid=0), and sports-replay.ini, as part of video setting in section __recorder__.
+    - Add "sportsreplay" user for RTSP authentication, and  make sure to put the same password to [Devices Google sheet](https://docs.google.com/spreadsheets/d/1Tg_gxh4OfoJmMWTyH1NMfoTsNLtMI4H4KceRg6mj3fs/edit?usp=sharing), and sports-replay.ini, as part of video setting in section __recorder__.
     
     Image Settings -> OSD Settings
     

@@ -1,7 +1,7 @@
 import cv2
 import psutil
 
-source = '/home/sportsreplay/GitHub/sports-replay-hrvoje/ActivityDetector/SampleImages/frame_1564827634_0001.jpg'
+source = '/home/sportsreplay/GitHub/sports-replay-local/ActivityDetector/SampleImages/frame_1564827634_0001.jpg'
 capture = cv2.VideoCapture(source)
 capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
 capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)

@@ -69,7 +69,7 @@ Building parquet-cpp master is no longer supported.  Build from C++
   codebase in https://github.com/apache/arrow with -DARROW_PARQUET=ON
   
 
-### Nota about using CMAKE to build Arrow
+### Note about using CMAKE to build Arrow
 
 `cmake -DARROW_PLASMA=ON -DARROW_PYTHON=ON -DARROW_PARQUET=ON ..`
 
@@ -90,3 +90,23 @@ Building parquet-cpp master is no longer supported.  Build from C++
 `make install`
 
 `pip install brain-plasma`
+
+
+## Customising the NVIDIA Deepstreamer Docker Image
+
+### Pulling The Default Image
+docker pull nvcr.io/nvidia/deepstream-l4t:4.0.1-19.09-samples
+
+### Copying OpenCV into The Image
+sudo docker cp $HOME/GitHub/opencv-4.1.1/. xyzq:/home/GitHub/opencv-4.1.1
+
+### Run Docker Interactively
+sudo docker run -it nvcr.io/nvidia/deepstream-l4t:4.0.1-19.09-samples
+
+### Copying OpenCV
+cd /home/GitHub/opencv-4.1.1/build
+make install
+
+### Exit Docker Image & Push Image to Docker Repository
+docker tag xyzq ibicom/sportsReplay
+docker push  xyzq ibicom/sportsReplay
