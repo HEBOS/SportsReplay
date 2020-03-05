@@ -58,6 +58,6 @@
 
     Run the following line before the first time only.
 
-`cp $HOME/GitHub/sports-replay-hrvoje/networks/yolov3/yolov3.weights .`
+`cp $HOME/GitHub/sports-replay-local/networks/yolov3/yolov3.weights .`
 
 `$HOME/GitHub/valgrind/valgrind-3.15.0/Inst/bin/valgrind --leak-check=full --show-reachable=yes ./darknet detector test ./cfg/coco.data ./cfg/yolov3.cfg ./yolov3.weights data/dog.jpg -i 0 -thresh 0.25`

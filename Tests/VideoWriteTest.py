@@ -44,7 +44,7 @@ class VideoWriteTest(object):
                                                    width=width,
                                                    height=height,
                                                    user="sportsreplay",
-                                                   password="Spswd001.",
+                                                   password="PASSWORD_HERE",
                                                    latency=2000)
 
         output_pipeline = "appsrc " \

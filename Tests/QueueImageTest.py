@@ -12,7 +12,7 @@ tracker = SummaryTracker()
 
 before = psutil.virtual_memory()
 image = cv2.imread(
-    '/home/sportsreplay/GitHub/sports-replay-hrvoje/ActivityDetector/SampleImages/frame_1564827634_0001.jpg')
+    '/home/sportsreplay/GitHub/sports-replay-local/ActivityDetector/SampleImages/frame_1564827634_0001.jpg')
 # image = "bla"
 q = mp.Queue()
 foo = None
