@@ -1,7 +1,5 @@
 # Sports Replay
 
-## Description
-
 is an open source autonomous indoor football/basketball/handball video recording solution.
 It requires two 110 degree wide angle cameras installed in two opposite (longest diagonal) corners.
 Besides two cameras it also requires one Jetson Nano, and one Raspberry Pi 4.
